@@ -51,16 +51,12 @@ app.get('/api/health', (req, res) => {
 
 // Serve static files in production
 if (isProd) {
-  // Use an absolute path to the frontend build directory
-  const frontendBuildPath = path.resolve(__dirname, '../frontend/build');
-  console.log('Serving frontend from:', frontendBuildPath);
-  
   // Serve frontend static files
-  app.use(express.static(frontendBuildPath));
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
   
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
   });
 }
 
