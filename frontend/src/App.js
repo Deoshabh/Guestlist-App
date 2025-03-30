@@ -16,8 +16,17 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Use API base URL with proxy from package.json
-  const API_BASE_URL = '/api';
+  // Use API base URL with environment awareness
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? (process.env.REACT_APP_API_URL || '/api') 
+    : '/api';
+
+  // Set default axios base URL
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
+    }
+  }, []);
 
   // Set dark mode class on body
   useEffect(() => {
