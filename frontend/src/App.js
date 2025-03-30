@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -38,7 +38,8 @@ function App() {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
-  const fetchGuests = async () => {
+  // Use useCallback to create a stable reference to fetchGuests
+  const fetchGuests = useCallback(async () => {
     if (!token) return;
     
     setLoading(true);
@@ -62,7 +63,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, API_BASE_URL, setLoading, setError, setGuests, setStats]);
 
   useEffect(() => {
     if (token) {
@@ -71,7 +72,7 @@ function App() {
     } else {
       localStorage.removeItem('token');
     }
-  }, [token]);
+  }, [token, fetchGuests]);
 
   const toggleDarkMode = () => setDarkMode(!darkMode);
   const logout = () => setToken('');
