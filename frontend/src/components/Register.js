@@ -26,10 +26,10 @@ const Register = ({ setToken, setShowRegister }) => {
     setLoading(true);
     try {
       // Register the user
-      await axios.post('/api/auth/register', { username, password });
+      await axios.post('/auth/register', { username, password });
       
       // Login the user after registration
-      const loginRes = await axios.post('/api/auth/login', { 
+      const loginRes = await axios.post('/auth/login', { 
         username, 
         password 
       });
