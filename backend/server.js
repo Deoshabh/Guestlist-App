@@ -31,11 +31,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Connect to MongoDB
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost/guestlist';
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guestlist';
+mongoose.connect(MONGODB_URI)
 .then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
 .catch(err => console.error('MongoDB connection error:', err));
 

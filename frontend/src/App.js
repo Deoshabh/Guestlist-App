@@ -16,9 +16,9 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Use API base URL with environment awareness
+  // Use API base URL with environment awareness - correct version to avoid duplicating /api
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? (process.env.REACT_APP_API_URL || '') 
+    ? '' 
     : '/api';
 
   // Set default axios base URL
@@ -45,12 +45,12 @@ function App() {
     setError(null);
     
     try {
-      const res = await axios.get(`${API_BASE_URL === '/api' ? '/guests' : '/guests'}`, {
+      const res = await axios.get(`${API_BASE_URL}/guests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGuests(res.data);
       
-      const statsRes = await axios.get(`${API_BASE_URL === '/api' ? '/guests/stats' : '/guests/stats'}`, {
+      const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsRes.data);

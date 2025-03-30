@@ -18,7 +18,7 @@ function GuestForm({ token, onGuestAdded, apiBaseUrl = '/api' }) {
     
     setLoading(true);
     try {
-      await axios.post(`${apiBaseUrl === '/api' ? '/guests' : '/guests'}`, { 
+      await axios.post(`${apiBaseUrl}/guests`, { 
         name: name.trim(), 
         contact: contact.trim() 
       }, {

@@ -79,7 +79,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     
     setLoading(true);
     try {
-      await axios.put(`${apiBaseUrl === '/api' ? '/guests/bulk-update' : '/guests/bulk-update'}`, { ids: selected, invited }, {
+      await axios.put(`${apiBaseUrl}/guests/bulk-update`, { ids: selected, invited }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSelected([]);
@@ -95,7 +95,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
   const toggleGuestInvited = async (id, currentStatus) => {
     setLoading(true);
     try {
-      await axios.put(`${apiBaseUrl === '/api' ? '/guests/' : '/guests/'}${id}`, { invited: !currentStatus }, {
+      await axios.put(`${apiBaseUrl}/guests/${id}`, { invited: !currentStatus }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       onUpdate();
@@ -112,7 +112,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     
     setLoading(true);
     try {
-      await axios.delete(`${apiBaseUrl === '/api' ? '/guests/' : '/guests/'}${id}`, {
+      await axios.delete(`${apiBaseUrl}/guests/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       onUpdate();
@@ -127,7 +127,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
   const undoDelete = async (id) => {
     setLoading(true);
     try {
-      await axios.put(`${apiBaseUrl === '/api' ? '/guests/' : '/guests/'}${id}/undo`, {}, {
+      await axios.put(`${apiBaseUrl}/guests/${id}/undo`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       onUpdate();
@@ -140,7 +140,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
   };
 
   const exportCSV = () => {
-    window.open(`${apiBaseUrl === '/api' ? '/guests/export' : '/guests/export'}`, '_blank');
+    window.open(`${apiBaseUrl}/guests/export`, '_blank');
   };
 
   const importCSV = async (e) => {
@@ -152,7 +152,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     
     setLoading(true);
     try {
-      await axios.post(`${apiBaseUrl === '/api' ? '/guests/import' : '/guests/import'}`, formData, {
+      await axios.post(`${apiBaseUrl}/guests/import`, formData, {
         headers: { 
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`
