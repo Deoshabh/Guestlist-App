@@ -1,0 +1,164 @@
+/* Base styles */
+.App {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  background-color: #f9f9f9;
+  color: #333;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px;
+}
+
+.App.dark {
+  background-color: #333;
+  color: #f9f9f9;
+}
+
+/* Navbar */
+.navbar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nav-actions button {
+  margin-left: 10px;
+}
+
+/* Auth form styling */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}
+
+.auth-form input,
+.auth-form button {
+  margin: 5px 0;
+  padding: 10px;
+}
+
+/* Guest form */
+.guest-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.guest-form input {
+  flex: 1 1 200px;
+  padding: 10px;
+}
+
+.guest-form button {
+  padding: 10px;
+}
+
+/* Guest list */
+.guest-list table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.guest-list table, .guest-list th, .guest-list td {
+  border: 1px solid #ccc;
+}
+
+.guest-list th, .guest-list td {
+  padding: 8px;
+  text-align: left;
+}
+
+/* Controls and bulk actions */
+.controls,
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.controls input,
+.controls select,
+.bulk-actions button {
+  padding: 8px;
+}
+
+/* Error and loading styles */
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+}
+
+.loading {
+  padding: 10px;
+  margin: 10px 0;
+  text-align: center;
+  color: #004085;
+  background-color: #cce5ff;
+  border-radius: 4px;
+}
+
+/* Dark mode styles for error and loading */
+.App.dark .error-message {
+  background-color: #552229;
+  color: #f8d7da;
+  border-color: #721c24;
+}
+
+.App.dark .loading {
+  background-color: #002752;
+  color: #cce5ff;
+}
+
+/* Disabled button styles */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .guest-list table,
+  .guest-list thead,
+  .guest-list tbody,
+  .guest-list th,
+  .guest-list td,
+  .guest-list tr {
+    display: block;
+  }
+
+  .guest-list tr {
+    margin-bottom: 15px;
+  }
+
+  .guest-list td {
+    padding-left: 50%;
+    position: relative;
+  }
+
+  .guest-list td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 45%;
+    padding-left: 10px;
+    font-weight: bold;
+  }
+}
