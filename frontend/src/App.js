@@ -18,7 +18,7 @@ function App() {
 
   // Use API base URL with environment awareness
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? (process.env.REACT_APP_API_URL || '/api') 
+    ? (process.env.REACT_APP_API_URL || '') 
     : '/api';
 
   // Set default axios base URL
@@ -45,12 +45,12 @@ function App() {
     setError(null);
     
     try {
-      const res = await axios.get(`${API_BASE_URL}/guests`, {
+      const res = await axios.get(`${API_BASE_URL === '/api' ? '/guests' : '/guests'}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setGuests(res.data);
       
-      const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
+      const statsRes = await axios.get(`${API_BASE_URL === '/api' ? '/guests/stats' : '/guests/stats'}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsRes.data);

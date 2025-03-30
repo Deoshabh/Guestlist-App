@@ -13,7 +13,7 @@ const Login = ({ setToken, showRegister, setShowRegister }) => {
     setLoading(true);
     
     try {
-      const res = await axios.post('/api/auth/login', { username, password });
+      const res = await axios.post('/auth/login', { username, password });
       setToken(res.data.token);
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Check server connection.');
