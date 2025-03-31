@@ -155,7 +155,7 @@
       
       // Add reload handler
       document.getElementById('recovery-reload').addEventListener('click', function() {
-        window.location.reload();
+        attemptRecovery();
       });
       
       // Add desktop mode handler for mobile devices
@@ -202,4 +202,45 @@
       });
     }
   }, TIMEOUT);
+  
+  // Add improved recovery logic
+  function attemptRecovery() {
+    try {
+      // Clear service worker caches
+      if ('caches' in window) {
+        caches.keys().then(function(cacheNames) {
+          cacheNames.forEach(function(cacheName) {
+            if (cacheName.startsWith('guest-mgr-')) {
+              console.log('Clearing cache:', cacheName);
+              caches.delete(cacheName);
+            }
+          });
+        });
+      }
+      
+      // Unregister service workers
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            console.log('Unregistering service worker:', registration);
+            registration.unregister();
+          }
+        });
+      }
+      
+      // Clear session storage but preserve important user data
+      const token = sessionStorage.getItem('authToken');
+      const darkMode = localStorage.getItem('darkMode');
+      sessionStorage.clear();
+      if (token) sessionStorage.setItem('authToken', token);
+      if (darkMode) localStorage.setItem('darkMode', darkMode);
+      
+      // Reload with a clean slate parameter
+      window.location.href = window.location.pathname + '?clean=true';
+    } catch (e) {
+      console.error('Recovery attempt failed:', e);
+      // Force a complete reload as last resort
+      window.location.href = window.location.pathname;
+    }
+  }
 })();

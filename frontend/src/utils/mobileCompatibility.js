@@ -1,303 +1,185 @@
 /**
- * Utility for handling mobile-specific compatibility issues
+ * Utility functions to improve mobile device compatibility
  */
 
-// Check if we're in a mobile environment
-export const isMobileDevice = () => {
+// Apply runtime patches to fix common mobile-specific issues
+export function applyMobilePatches() {
+  // Apply Array method protections to prevent common mobile errors
+  protectArrayMethods();
+  
+  // Add touch event safeguards
+  enhanceTouchEvents();
+  
+  // Add swipe gesture protections
+  protectSwipeGestures();
+  
+  // Fix event propagation issues on mobile
+  fixEventBubbling();
+  
+  console.log('Mobile compatibility patches applied');
+}
+
+// Protect Array methods from undefined/null errors common on mobile devices
+function protectArrayMethods() {
   try {
-    return (
-      window.innerWidth <= 768 ||
-      'ontouchstart' in window ||
-      (navigator && navigator.maxTouchPoints > 0)
-    );
-  } catch (error) {
-    console.error('Error detecting mobile device:', error);
-    return false;
-  }
-};
-
-// Apply mobile-specific patches
-export const applyMobilePatches = () => {
-  try {
-    // Check if forced desktop view is enabled
-    const forceDesktop = localStorage.getItem('forceDesktopView') === 'true';
-    if (forceDesktop) {
-      console.log('Desktop view forced on mobile device');
-      // Add meta viewport tag to force desktop view
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        // Use a fixed width but allow zooming for accessibility
-        viewport.content = 'width=1024, initial-scale=0.8, maximum-scale=3.0, user-scalable=yes';
-      }
+    // Protect common array methods that cause mobile crashes
+    ['map', 'filter', 'forEach', 'find', 'reduce', 'some', 'every'].forEach(method => {
+      const original = Array.prototype[method];
       
-      // Add explicit body styles for desktop view
-      document.body.classList.add('forced-desktop-view');
-      
-      // Check if style already exists to prevent duplicates
-      let styleElement = document.getElementById('desktop-mode-styles');
-      if (!styleElement) {
-        styleElement = document.createElement('style');
-        styleElement.id = 'desktop-mode-styles';
-        styleElement.textContent = `
-          .forced-desktop-view {
-            min-width: 1024px;
-            overflow-x: auto;
-            touch-action: pan-x pan-y;
-          }
-          @media (max-width: 768px) {
-            .forced-desktop-view {
-              transform: scale(0.9);
-              transform-origin: top left;
-            }
-            /* Ensure buttons and links are clickable */
-            button, a {
-              touch-action: manipulation;
-            }
-            /* Improve focus styles for keyboard users */
-            :focus {
-              outline: 2px solid #3b82f6 !important;
-            }
-          }
-        `;
-        document.head.appendChild(styleElement);
-      }
-      
-      // Fix scroll behavior
-      document.documentElement.style.overscrollBehavior = 'none';
-      
-      return true;
-    }
-
-    // Fix array methods for mobile
-    fixArrayMethods();
-    
-    // Fix event handlers
-    fixEventHandlers();
-    
-    // Fix dom methods
-    fixDomMethods();
-    
-    // Apply additional mobile optimizations
-    applyMobileOptimizations();
-
-    // Log successful patching
-    console.log('Mobile compatibility patches applied');
-    return true;
-  } catch (error) {
-    console.error('Failed to apply mobile patches:', error);
-    return false;
-  }
-};
-
-// Fix array-related methods that often cause mobile issues
-const fixArrayMethods = () => {
-  // Patch Array.prototype.map for additional safety
-  const arrayMethods = ['map', 'filter', 'forEach', 'find', 'some', 'every', 'reduce', 'reduceRight'];
-  
-  arrayMethods.forEach(method => {
-    const original = Array.prototype[method];
-    Array.prototype[method] = function(...args) {
-      if (!this) {
-        console.warn(`Prevented ${method}() call on null/undefined`);
-        switch (method) {
-          case 'map':
-          case 'filter':
-            return [];
-          case 'find':
+      if (original && typeof original === 'function') {
+        Array.prototype[method] = function(...args) {
+          if (this === null || this === undefined) {
+            console.warn(`Protected ${method}() call on ${this} - returning safe default`);
+            // Return appropriate default value based on method
+            if (method === 'map' || method === 'filter') return [];
+            if (method === 'find') return undefined;
+            if (method === 'some' || method === 'every') return false;
+            if (method === 'reduce') throw new TypeError('Reduce of null or undefined not allowed');
             return undefined;
-          case 'some':
-          case 'every':
-            return false;
-          case 'reduce':
-          case 'reduceRight':
-            if (args.length < 2) {
-              throw new TypeError(`Reduce of empty array with no initial value`);
-            }
-            return args[1];
-          default:
-            return undefined;
-        }
-      }
-      return original.apply(this, args);
-    };
-  });
-  
-  // Also patch Object entries, keys, values
-  ['entries', 'keys', 'values'].forEach(method => {
-    const original = Object[method];
-    Object[method] = function(obj, ...args) {
-      if (obj == null) {
-        console.warn(`Prevented Object.${method}() call on null/undefined`);
-        return [];
-      }
-      return original.call(this, obj, ...args);
-    };
-  });
-  
-  console.log('Array and Object methods patched for mobile safety');
-};
-
-// Fix event handlers that cause issues on mobile
-const fixEventHandlers = () => {
-  if (typeof EventTarget !== 'undefined') {
-    const originalAddEventListener = EventTarget.prototype.addEventListener;
-    EventTarget.prototype.addEventListener = function(type, listener, options) {
-      if (!this) return;
-      
-      // For touch events, wrap in try-catch
-      if (type.startsWith('touch') || type === 'click') {
-        const wrappedListener = function(event) {
-          try {
-            return listener.call(this, event);
-          } catch (error) {
-            console.error(`Error in ${type} event handler:`, error);
-            // Prevent further propagation if there's an error
-            event.stopPropagation();
-            event.preventDefault();
           }
+          return original.apply(this, args);
         };
-        return originalAddEventListener.call(this, type, wrappedListener, options);
       }
-      
-      return originalAddEventListener.call(this, type, listener, options);
-    };
+    });
+  } catch (error) {
+    console.error('Error applying array protections:', error);
   }
-  
-  // Prevent pinch zoom on mobile if causing issues
-  document.addEventListener('touchmove', function(event) {
-    if (event.scale !== 1 && event.scale !== undefined) {
-      // Pinch detected, check if it should be allowed
-      const targetElement = event.target;
-      const shouldPreventPinch = targetElement.closest('.no-pinch-zoom');
+}
+
+// Add safeguards for touch events that commonly break in mobile WebViews
+function enhanceTouchEvents() {
+  try {
+    // Intercept and fix problematic touch events
+    const touchEvents = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
+    
+    touchEvents.forEach(eventType => {
+      const originalAdd = EventTarget.prototype.addEventListener;
+      const originalRemove = EventTarget.prototype.removeEventListener;
       
-      if (shouldPreventPinch) {
+      // Override addEventListener to add error protection
+      EventTarget.prototype.addEventListener = function(type, listener, options) {
+        if (touchEvents.includes(type) && typeof listener === 'function') {
+          // Wrap the listener in a try-catch
+          const safeListener = function(event) {
+            try {
+              return listener.call(this, event);
+            } catch (error) {
+              console.warn(`Error in touch event (${type}) listener caught:`, error);
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          };
+          
+          // Store reference to original for removal
+          if (!listener._safeVersion) {
+            listener._safeVersion = safeListener;
+          }
+          
+          return originalAdd.call(this, type, safeListener, options);
+        }
+        
+        return originalAdd.call(this, type, listener, options);
+      };
+      
+      // Override removeEventListener to handle wrapped functions
+      EventTarget.prototype.removeEventListener = function(type, listener, options) {
+        if (touchEvents.includes(type) && typeof listener === 'function') {
+          return originalRemove.call(
+            this, 
+            type, 
+            listener._safeVersion || listener, 
+            options
+          );
+        }
+        
+        return originalRemove.call(this, type, listener, options);
+      };
+    });
+  } catch (error) {
+    console.error('Error enhancing touch events:', error);
+  }
+}
+
+// Protect swipe gesture handlers from common errors
+function protectSwipeGestures() {
+  try {
+    // Add global error handler for touch events
+    window.addEventListener('error', function(event) {
+      if (event.error && 
+          (event.error.message?.includes('swipe') || 
+           event.error.message?.includes('touch') ||
+           event.error.message?.includes('drag'))) {
+        
+        console.warn('Swipe gesture error intercepted:', event.error);
+        
+        // Add temp fix for swipe errors - cancel all current touches
+        const touchend = new Event('touchend', { bubbles: true, cancelable: true });
+        document.dispatchEvent(touchend);
+        
+        // Prevent default action
         event.preventDefault();
       }
-    }
-  }, { passive: false });
-  
-  console.log('Event handlers patched for mobile safety');
-};
+    });
+  } catch (error) {
+    console.error('Error protecting swipe gestures:', error);
+  }
+}
 
-// Fix DOM methods that cause issues on mobile
-const fixDomMethods = () => {
-  // Fix element.remove() method
-  if (Element.prototype.remove) {
-    const originalRemove = Element.prototype.remove;
-    Element.prototype.remove = function() {
-      try {
-        originalRemove.apply(this);
-      } catch (e) {
-        console.warn('Error removing element:', e);
-        if (this.parentNode) {
-          this.parentNode.removeChild(this);
+// Fix event bubbling issues on mobile browsers
+function fixEventBubbling() {
+  try {
+    // Ensure click events properly propagate on iOS
+    document.addEventListener('touchend', function(e) {
+      // Convert touchend to click for elements with role="button" or actual buttons
+      const target = e.target.closest('[role="button"], button, a, input[type="checkbox"], input[type="radio"]');
+      
+      if (target && !target.disabled) {
+        // Get the position of the touch
+        const touch = e.changedTouches[0];
+        
+        // Create a mouse event
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          screenX: touch?.screenX || 0,
+          screenY: touch?.screenY || 0,
+          clientX: touch?.clientX || 0,
+          clientY: touch?.clientY || 0
+        });
+        
+        // Dispatch the event conditionally if it looks like we need to
+        if (target.tagName === 'INPUT' || window.navigator.userAgent.match(/iPhone|iPad|iPod/)) {
+          target.dispatchEvent(clickEvent);
         }
       }
-    };
+    }, false);
+  } catch (error) {
+    console.error('Error fixing event bubbling:', error);
   }
-  
-  // Fix querySelector to avoid null errors
-  if (Document.prototype.querySelector) {
-    const originalQuerySelector = Document.prototype.querySelector;
-    Document.prototype.querySelector = function(selector) {
-      try {
-        return originalQuerySelector.call(this, selector);
-      } catch (e) {
-        console.warn(`Error in querySelector('${selector}'):`, e);
-        return null;
-      }
-    };
-  }
-  
-  // Fix element.classList.toggle to avoid errors
-  if (DOMTokenList.prototype.toggle) {
-    const originalToggle = DOMTokenList.prototype.toggle;
-    DOMTokenList.prototype.toggle = function(token, force) {
-      try {
-        return originalToggle.call(this, token, force);
-      } catch (e) {
-        console.warn(`Error toggling class '${token}':`, e);
-        return false;
-      }
-    };
-  }
-  
-  console.log('DOM methods patched for mobile safety');
-};
+}
 
-// Apply additional mobile-specific optimizations
-const applyMobileOptimizations = () => {
-  // Fix for 100vh issues on mobile
-  const setCssViewportHeight = () => {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-  };
-  
-  setCssViewportHeight();
-  window.addEventListener('resize', setCssViewportHeight);
-  
-  // Improve touch response
-  document.documentElement.style.touchAction = 'manipulation';
-  
-  // Add safe access utilities to window
-  window.safeAccess = (obj, prop, defaultValue = null) => {
-    try {
-      if (!obj || typeof obj !== 'object') return defaultValue;
-      return obj[prop] !== undefined ? obj[prop] : defaultValue;
-    } catch (e) {
-      console.warn(`Error accessing ${prop}:`, e);
-      return defaultValue;
-    }
-  };
-  
-  // Ensure scroll restoration is set to auto
-  if ('scrollRestoration' in history) {
-    history.scrollRestoration = 'auto';
-  }
-  
-  console.log('Mobile optimizations applied');
-};
+// Helper to detect if rendering on a mobile device
+export function isMobileDevice() {
+  return (
+    window.innerWidth <= 768 ||
+    navigator.maxTouchPoints > 0 ||
+    'ontouchstart' in window ||
+    /Mobi|Android/i.test(navigator.userAgent)
+  );
+}
 
-// Create a toggle function to easily switch between views
-export const toggleDesktopView = () => {
-  const currentValue = localStorage.getItem('forceDesktopView');
-  const newValue = currentValue === 'true' ? null : 'true';
-  
-  if (newValue) {
-    localStorage.setItem('forceDesktopView', newValue);
-  } else {
-    localStorage.removeItem('forceDesktopView');
-  }
-  
-  // Add a temporary message before reload
-  const msgEl = document.createElement('div');
-  msgEl.style.position = 'fixed';
-  msgEl.style.top = '50%';
-  msgEl.style.left = '50%';
-  msgEl.style.transform = 'translate(-50%, -50%)';
-  msgEl.style.backgroundColor = '#3b82f6';
-  msgEl.style.color = 'white';
-  msgEl.style.padding = '20px';
-  msgEl.style.borderRadius = '8px';
-  msgEl.style.zIndex = '9999';
-  msgEl.style.textAlign = 'center';
-  msgEl.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-  msgEl.textContent = newValue === 'true' ? 'Switching to desktop view...' : 'Switching to mobile view...';
-  document.body.appendChild(msgEl);
-  
-  // Reload after a short delay
-  setTimeout(() => {
-    window.location.reload();
-  }, 500);
-  
-  return newValue === 'true';
-};
-
-// Initialize on import
-applyMobilePatches();
+// Helper to check if device is in PWA mode
+export function isPWAMode() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.navigator.standalone === true
+  );
+}
 
 export default {
-  isMobileDevice,
   applyMobilePatches,
-  toggleDesktopView
+  isMobileDevice,
+  isPWAMode
 };

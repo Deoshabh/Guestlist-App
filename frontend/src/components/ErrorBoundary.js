@@ -31,39 +31,64 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error to console
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Enhanced error logging
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
     
-    // Detect mobile-specific errors
-    const errorString = error.toString().toLowerCase();
-    const isMobileError = this.checkIfMobileError(errorString, errorInfo);
+    // Detect if error is related to mobile/PWA issues
+    const isPWAError = error.message && (
+      error.message.includes('ServiceWorker') ||
+      error.message.includes('manifest') ||
+      error.message.includes('Notification') ||
+      error.message.includes('Permission')
+    );
     
-    // Set state with error details
-    this.setState(prevState => ({
+    // Detect mobile-specific rendering issues
+    const isMobileRenderError = error.message && (
+      error.message.includes('touch') ||
+      error.message.includes('swipe') ||
+      error.message.includes('viewport')
+    );
+    
+    this.setState({
+      hasError: true,
       error,
       errorInfo,
-      isMobileError,
-      recoveryAttempts: prevState.recoveryAttempts + 1
-    }));
+      recoveryAttempts: this.state.recoveryAttempts + 1,
+      isMobileError: this.isMobileDevice() || isMobileRenderError,
+      isPWAError
+    });
     
-    // Log to analytics if available
-    try {
-      if (window.gtag) {
-        window.gtag('event', 'error', {
-          'event_category': 'Error Boundary',
-          'event_label': error.toString(),
-          'value': isMobileError ? 1 : 0
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to log error to analytics:', e);
+    // Automatically attempt recovery for PWA errors
+    if (isPWAError && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+        // Add a small delay before reloading
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      });
     }
     
-    // Attempt auto-recovery for certain mobile errors after 2 seconds
-    if (isMobileError && this.state.recoveryAttempts < 2) {
-      setTimeout(() => {
-        this.attemptAutoRecovery(errorString);
-      }, 2000);
+    // Save error details for crash reporting
+    try {
+      const errorData = {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo?.componentStack,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        isMobile: this.isMobileDevice(),
+        isOffline: !navigator.onLine
+      };
+      
+      // Store in localStorage for later reporting when back online
+      const storedErrors = JSON.parse(localStorage.getItem('errorLog') || '[]');
+      storedErrors.push(errorData);
+      localStorage.setItem('errorLog', JSON.stringify(storedErrors.slice(-5))); // Keep only last 5 errors
+    } catch (e) {
+      // Ignore error logging failures
     }
   }
   
@@ -173,18 +198,22 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      // Fallback UI when an error occurs
+      // Improved fallback UI when an error occurs
       return (
         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md my-4">
           <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
-            Something went wrong
+            {this.state.isPWAError ? 'App Installation Issue Detected' : 'Something went wrong'}
           </h2>
+          
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            {this.state.isMobileError 
-              ? "We've encountered an issue with the mobile view. Try switching to desktop view or refreshing the page."
-              : "The application encountered an unexpected error. Please try again or refresh the page."
+            {this.state.isPWAError
+              ? "We've encountered an issue with the app installation. This is being automatically fixed."
+              : this.state.isMobileError 
+                ? "We've encountered an issue with the mobile view. Try switching to desktop view or refreshing the page."
+                : "The application encountered an unexpected error. Please try again or refresh the page."
             }
           </p>
+          
           {this.state.error && (
             <details className="mb-4">
               <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
@@ -266,6 +295,16 @@ class ErrorBoundary extends Component {
               >
                 Clear App Data & Reload
               </button>
+            )}
+            
+            {/* Add PWA-specific recovery options */}
+            {this.state.isPWAError && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded text-sm">
+                <p className="font-medium text-blue-800 dark:text-blue-200">Automatic recovery in progress...</p>
+                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                  <div className="bg-blue-600 h-2.5 rounded-full animate-progress"></div>
+                </div>
+              </div>
             )}
           </div>
         </div>

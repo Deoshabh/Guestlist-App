@@ -1,330 +1,201 @@
 /**
- * Mobile Recovery Utility
- * Handles mobile-specific error detection and recovery
+ * Mobile-specific error recovery utilities
  */
 
-// Track errors to prevent infinite loops
-let errorCount = 0;
-const ERROR_THRESHOLD = 3;
-const RECOVERY_KEY = 'mobileRecoveryAttempted';
-
-/**
- * Monitors for common mobile errors and provides recovery options
- */
-export const monitorMobileErrors = () => {
-  // Only apply on mobile devices
-  if (window.innerWidth > 768) return;
-
-  // Check if we're in a recovery cycle
-  if (sessionStorage.getItem(RECOVERY_KEY) === 'true') {
-    console.log('Recovery mode active, applying enhanced protections');
-    applyEnhancedProtections();
-  }
-
-  // Detect errors on important React hooks
-  patchReactHooks();
-
-  // Fix existing array processing errors that might be present
-  preemptiveArrayFix();
-
-  // Monitor for Array operation errors
-  window.addEventListener('error', (event) => {
-    if (!event.error) return;
-
-    const errorMessage = event.error.toString().toLowerCase();
+// Create a global error monitor and recovery system for mobile devices
+export function monitorMobileErrors() {
+  try {
+    console.log('Mobile error monitoring initialized');
     
-    // Detect common mobile errors
-    const isMapError = errorMessage.includes('map') || 
-                        errorMessage.includes('undefined is not an object') ||
-                        errorMessage.includes('null is not an object') ||
-                        errorMessage.includes('cannot read property') ||
-                        errorMessage.includes('is not a function');
-                        
-    const isRenderError = errorMessage.includes('render') || 
-                          errorMessage.includes('react') ||
-                          errorMessage.includes('hook') ||
-                          errorMessage.includes('state') ||
-                          errorMessage.includes('effect');
-
-    const isTouchError = errorMessage.includes('touch') ||
-                         errorMessage.includes('event') ||
-                         errorMessage.includes('gesture') ||
-                         errorMessage.includes('swipe');
-                         
-    // Track and respond to errors
-    if (isMapError || isRenderError || isTouchError) {
-      errorCount++;
-      console.warn(`Mobile error detected (${errorCount}/${ERROR_THRESHOLD}):`, errorMessage);
+    // Track error counts to prevent infinite loops
+    const errorCounts = {};
+    
+    // Track if we've already applied emergency recovery
+    let emergencyRecoveryApplied = false;
+    
+    // Monitor for unhandled errors
+    window.addEventListener('error', event => {
+      const error = event.error || new Error(event.message);
+      const errorMsg = error.message || 'Unknown error';
       
-      // Apply lightweight fixes first
-      if (errorCount === 1) {
-        attemptQuickFix(errorMessage);
+      // Skip network errors - they're handled elsewhere
+      if (errorMsg.includes('network') || 
+          errorMsg.includes('fetch') || 
+          errorMsg.includes('Network')) {
+        return;
       }
       
-      // If we hit the threshold, try recovery
-      if (errorCount >= ERROR_THRESHOLD) {
-        initiateRecovery();
-      }
-    }
-  });
-};
-
-/**
- * Attempt to quickly fix common issues without a full recovery
- */
-const attemptQuickFix = (errorMessage) => {
-  try {
-    // If it's a map error, attempt to immediately patch Array.prototype.map
-    if (errorMessage.includes('map') || errorMessage.includes('undefined is not an object')) {
-      console.log('Applying quick fix for Array methods');
+      // Count this error type
+      errorCounts[errorMsg] = (errorCounts[errorMsg] || 0) + 1;
       
-      // Patch Array functions
-      const safeArrayFunctions = ['map', 'forEach', 'filter', 'reduce', 'find'];
-      
-      safeArrayFunctions.forEach(funcName => {
-        const original = Array.prototype[funcName];
-        Array.prototype[funcName] = function(...args) {
-          if (!this) {
-            console.warn(`Quick fix: Prevented ${funcName}() call on null/undefined`);
-            return funcName === 'map' || funcName === 'filter' ? [] : undefined;
-          }
-          return original.apply(this, args);
-        };
-      });
-      
-      // Add a fix message and reload
-      const fixMsg = document.createElement('div');
-      fixMsg.style.position = 'fixed';
-      fixMsg.style.bottom = '60px';
-      fixMsg.style.left = '10px';
-      fixMsg.style.right = '10px';
-      fixMsg.style.padding = '10px';
-      fixMsg.style.backgroundColor = '#4CAF50';
-      fixMsg.style.color = 'white';
-      fixMsg.style.textAlign = 'center';
-      fixMsg.style.borderRadius = '5px';
-      fixMsg.style.zIndex = '9999';
-      fixMsg.textContent = 'Fixing display issue...';
-      document.body.appendChild(fixMsg);
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    }
-  } catch (e) {
-    console.error('Error in quick fix:', e);
-  }
-};
-
-/**
- * Apply preemptive fixes for array methods to avoid errors
- */
-const preemptiveArrayFix = () => {
-  try {
-    // Check if the list or form is failing to render
-    const guestFormExists = !!document.querySelector('.guest-form');
-    const guestListExists = !!document.querySelector('.guest-list');
-    
-    if (!guestFormExists || !guestListExists) {
-      console.log('Critical component missing, applying array fixes');
-      
-      // Fix array methods
-      const arrayMethods = ['map', 'filter', 'forEach', 'reduce', 'find', 'some', 'every'];
-      arrayMethods.forEach(method => {
-        const original = Array.prototype[method];
-        Array.prototype[method] = function(...args) {
-          if (!this) return method === 'map' || method === 'filter' ? [] : undefined;
-          return original.apply(this, args);
-        };
-      });
-      
-      // Force reload if components are still missing after a moment
-      setTimeout(() => {
-        if (!document.querySelector('.guest-form') || !document.querySelector('.guest-list')) {
-          localStorage.setItem('componentFailure', 'true');
-          window.location.reload();
+      // Check if this is a repeated error
+      if (errorCounts[errorMsg] > 2) {
+        console.warn('Repeated error detected:', errorMsg);
+        
+        // Apply emergency recovery if we haven't already
+        if (!emergencyRecoveryApplied) {
+          emergencyRecoveryApplied = true;
+          applyEmergencyRecovery(errorMsg);
         }
-      }, 2000);
-    }
-  } catch (e) {
-    console.error('Error in preemptive fix:', e);
-  }
-};
-
-/**
- * Patch React hooks to prevent common mobile errors
- */
-const patchReactHooks = () => {
-  try {
-    // Check if React DevTools are available to access React
-    if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-      const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+      }
       
-      // Monitor for React errors
-      if (hook.onCommitFiberRoot) {
-        const oldCommitFiber = hook.onCommitFiberRoot;
-        hook.onCommitFiberRoot = (...args) => {
-          try {
-            return oldCommitFiber.apply(this, args);
-          } catch (error) {
-            console.error('React fiber error:', error);
-            // If we catch React errors, increment our counter
-            errorCount++;
-            
-            if (errorCount >= ERROR_THRESHOLD) {
-              initiateRecovery();
-            }
-            return null;
-          }
-        };
+      // Log the error for debugging
+      console.error('Mobile error detected:', {
+        message: errorMsg,
+        stack: error.stack,
+        count: errorCounts[errorMsg],
+        recoveryApplied: emergencyRecoveryApplied
+      });
+    });
+    
+    // Monitor for unhandled promise rejections
+    window.addEventListener('unhandledrejection', event => {
+      const error = event.reason;
+      const errorMsg = error?.message || 'Unhandled promise rejection';
+      
+      // Count this error type
+      errorCounts[errorMsg] = (errorCounts[errorMsg] || 0) + 1;
+      
+      console.error('Unhandled promise rejection:', {
+        message: errorMsg,
+        stack: error?.stack,
+        count: errorCounts[errorMsg]
+      });
+      
+      // Apply emergency recovery if this keeps happening
+      if (errorCounts[errorMsg] > 2 && !emergencyRecoveryApplied) {
+        emergencyRecoveryApplied = true;
+        applyEmergencyRecovery(errorMsg);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to initialize mobile error recovery:', error);
+  }
+}
+
+// Apply emergency fixes for critical errors
+function applyEmergencyRecovery(errorMsg) {
+  console.log('Applying emergency recovery for:', errorMsg);
+  
+  try {
+    // Show a recovery UI to the user
+    showRecoveryUI(errorMsg);
+    
+    // Try to fix common mobile errors
+    if (errorMsg.includes('undefined is not an object') || 
+        errorMsg.includes('null is not an object') ||
+        errorMsg.includes('cannot read property')) {
+      
+      // These are usually property access on null/undefined objects
+      // Apply array and object protections
+      applyObjectProtections();
+      
+      // Force desktop view as a last resort for serious errors
+      if (window.innerWidth <= 768) {
+        localStorage.setItem('forceDesktopView', 'true');
+      }
+      
+      // Clear service worker caches which might be causing issues
+      if ('caches' in window) {
+        caches.keys().then(cacheNames => {
+          cacheNames.forEach(name => caches.delete(name));
+        });
       }
     }
-  } catch (e) {
-    console.error('Error patching React hooks:', e);
-  }
-};
-
-/**
- * Apply enhanced protections for mobile devices
- */
-const applyEnhancedProtections = () => {
-  // Patch Array functions
-  const safeArrayFunctions = ['map', 'forEach', 'filter', 'reduce', 'find', 'some', 'every'];
-  
-  safeArrayFunctions.forEach(funcName => {
-    const original = Array.prototype[funcName];
-    Array.prototype[funcName] = function(...args) {
-      if (!this) {
-        console.warn(`Enhanced protection: Prevented ${funcName}() call on null/undefined`);
-        return funcName === 'map' || funcName === 'filter' ? [] : 
-               funcName === 'some' || funcName === 'every' ? false : 
-               funcName === 'find' ? undefined : 
-               undefined;
-      }
-      try {
-        return original.apply(this, args);
-      } catch (error) {
-        console.error(`Error in ${funcName} operation:`, error);
-        return funcName === 'map' || funcName === 'filter' ? [] : 
-               funcName === 'some' || funcName === 'every' ? false : 
-               funcName === 'find' ? undefined : 
-               undefined;
-      }
-    };
-  });
-  
-  // Patch rendering functions
-  if (typeof window.requestAnimationFrame === 'function') {
-    const originalRAF = window.requestAnimationFrame;
-    window.requestAnimationFrame = function(callback) {
-      return originalRAF.call(window, function() {
-        try {
-          return callback.apply(this, arguments);
-        } catch (error) {
-          console.error('Error in requestAnimationFrame:', error);
-          return null;
-        }
-      });
-    };
-  }
-  
-  // Protect window.addEventListener for touch events
-  if (typeof EventTarget !== 'undefined') {
-    const origAddEventListener = EventTarget.prototype.addEventListener;
-    EventTarget.prototype.addEventListener = function(type, listener, options) {
-      if (type.startsWith('touch') || type === 'click') {
-        const safeListener = function(event) {
-          try {
-            return listener.call(this, event);
-          } catch (e) {
-            console.error(`Error in ${type} event:`, e);
-          }
-        };
-        return origAddEventListener.call(this, type, safeListener, options);
-      }
-      return origAddEventListener.call(this, type, listener, options);
-    };
-  }
-  
-  console.log('Enhanced mobile protections applied');
-};
-
-/**
- * Initiate recovery process for persistent mobile errors
- */
-const initiateRecovery = () => {
-  // Mark that recovery has been attempted
-  sessionStorage.setItem(RECOVERY_KEY, 'true');
-  
-  // Check if desktop view is already forced
-  const isDesktopForced = localStorage.getItem('forceDesktopView') === 'true';
-  
-  if (!isDesktopForced) {
-    console.log('Attempting mobile recovery by switching to desktop view');
-    localStorage.setItem('forceDesktopView', 'true');
     
-    // Show user a recovery message
-    const recoveryMsg = document.createElement('div');
-    recoveryMsg.style.position = 'fixed';
-    recoveryMsg.style.top = '50%';
-    recoveryMsg.style.left = '50%';
-    recoveryMsg.style.transform = 'translate(-50%, -50%)';
-    recoveryMsg.style.backgroundColor = '#3b82f6';
-    recoveryMsg.style.color = 'white';
-    recoveryMsg.style.padding = '20px';
-    recoveryMsg.style.borderRadius = '8px';
-    recoveryMsg.style.zIndex = '9999';
-    recoveryMsg.style.maxWidth = '80%';
-    recoveryMsg.style.textAlign = 'center';
-    recoveryMsg.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 10px;">Resolving Display Issues</div>
-      <div>Switching to desktop view to improve compatibility</div>
-    `;
-    document.body.appendChild(recoveryMsg);
-  } else {
-    // If desktop view doesn't help, clear data
-    console.log('Desktop view already active, clearing app data');
-    
+    // Reload after a short delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 3000);
+  } catch (recoveryError) {
+    console.error('Error during emergency recovery:', recoveryError);
+    // Last resort - reload
+    setTimeout(() => window.location.reload(), 1000);
+  }
+}
+
+// Protect object and array accesses
+function applyObjectProtections() {
+  // Make console.log safe (it's often used in components)
+  const originalConsoleLog = console.log;
+  console.log = function(...args) {
     try {
-      // Preserve key settings
-      const theme = localStorage.getItem('darkMode');
-      
-      // Clear all storage
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Restore theme
-      if (theme) {
-        localStorage.setItem('darkMode', theme);
-      }
-      
-      // Show message
-      const clearMsg = document.createElement('div');
-      clearMsg.style.position = 'fixed';
-      clearMsg.style.top = '50%';
-      clearMsg.style.left = '50%';
-      clearMsg.style.transform = 'translate(-50%, -50%)';
-      clearMsg.style.backgroundColor = '#ef4444';
-      clearMsg.style.color = 'white';
-      clearMsg.style.padding = '20px';
-      clearMsg.style.borderRadius = '8px';
-      clearMsg.style.zIndex = '9999';
-      clearMsg.style.maxWidth = '80%';
-      clearMsg.style.textAlign = 'center';
-      clearMsg.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 10px;">Resolving Persistent Issues</div>
-        <div>Clearing app data to fix display problems</div>
-      `;
-      document.body.appendChild(clearMsg);
+      return originalConsoleLog.apply(this, args);
     } catch (e) {
-      console.error('Error in clearing storage during recovery:', e);
+      // Silently fail rather than crash
     }
-  }
+  };
   
-  // Add a small delay before reload to ensure storage is set
-  setTimeout(() => {
-    window.location.reload();
-  }, 1500);
-};
+  // Add safe property access to Object
+  if (!Object.prototype.safeGet) {
+    Object.defineProperty(Object.prototype, 'safeGet', {
+      value: function(path, defaultValue = null) {
+        try {
+          let current = this;
+          const keys = path.split('.');
+          
+          for (let i = 0; i < keys.length; i++) {
+            if (current === null || current === undefined) {
+              return defaultValue;
+            }
+            current = current[keys[i]];
+          }
+          
+          return current === undefined ? defaultValue : current;
+        } catch (e) {
+          return defaultValue;
+        }
+      },
+      enumerable: false,
+      configurable: true
+    });
+  }
+}
 
-export default { monitorMobileErrors };
+// Show a simple recovery UI
+function showRecoveryUI(errorMsg) {
+  try {
+    // Create recovery element
+    const recoveryEl = document.createElement('div');
+    recoveryEl.style.position = 'fixed';
+    recoveryEl.style.top = '0';
+    recoveryEl.style.left = '0';
+    recoveryEl.style.right = '0';
+    recoveryEl.style.bottom = '0';
+    recoveryEl.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    recoveryEl.style.zIndex = '9999';
+    recoveryEl.style.display = 'flex';
+    recoveryEl.style.flexDirection = 'column';
+    recoveryEl.style.alignItems = 'center';
+    recoveryEl.style.justifyContent = 'center';
+    recoveryEl.style.color = 'white';
+    recoveryEl.style.padding = '20px';
+    recoveryEl.style.textAlign = 'center';
+    
+    // Create content
+    recoveryEl.innerHTML = `
+      <div style="background: #4f46e5; border-radius: 8px; padding: 20px; max-width: 300px; margin: 0 auto;">
+        <h2 style="margin-top: 0; font-size: 18px;">Fixing Display Issue</h2>
+        <p style="margin-bottom: 20px;">We've detected a problem and are fixing it automatically.</p>
+        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+          <div style="width: 30%; height: 100%; background: white; animation: progress 2s linear infinite;"></div>
+        </div>
+        <style>
+          @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+          }
+        </style>
+      </div>
+    `;
+    
+    // Add to body
+    document.body.appendChild(recoveryEl);
+  } catch (error) {
+    console.error('Error showing recovery UI:', error);
+  }
+}
+
+export default {
+  monitorMobileErrors
+};

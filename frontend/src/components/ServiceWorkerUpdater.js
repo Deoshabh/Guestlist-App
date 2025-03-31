@@ -11,21 +11,13 @@ const ServiceWorkerUpdater = () => {
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
   
+  // Check if we're running in PWA mode
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                window.navigator.standalone === true;
+  
   useEffect(() => {
-    // Check if we're in a PWA environment
-    const isPWA = serviceWorkerUtil.isAppInstalled();
-    
-    // Listen for service worker updates
+    // Register for service worker updates
     if ('serviceWorker' in navigator) {
-      // Setup a listener for when the service worker controlling this page changes
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // When the service worker is updated and takes control
-        if (updateReady) {
-          window.location.reload();
-        }
-      });
-      
-      // Also listen for messages from the service worker
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
           setShowUpdateBanner(true);
@@ -59,6 +51,25 @@ const ServiceWorkerUpdater = () => {
     return () => {
       clearInterval(interval);
     };
+  }, [isPWA]);
+  
+  // Watch for page load events after an update is triggered
+  useEffect(() => {
+    if (updateReady) {
+      const handlePageLoad = () => {
+        // Use setTimeout to let the DOM settle
+        setTimeout(() => {
+          setShowUpdateBanner(false);
+          setUpdateReady(false);
+        }, 1000);
+      };
+      
+      window.addEventListener('load', handlePageLoad);
+      
+      return () => {
+        window.removeEventListener('load', handlePageLoad);
+      };
+    }
   }, [updateReady]);
   
   const handleUpdate = async () => {
@@ -91,40 +102,43 @@ const ServiceWorkerUpdater = () => {
   
   return (
     <div className="fixed bottom-0 inset-x-0 px-4 pb-safe-bottom z-50 animate-slideUp">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 mx-auto max-w-md border border-blue-100 dark:border-blue-900 mb-4">
-        <div className="flex justify-between items-start">
+      <div className="bg-blue-600 text-white rounded-t-md p-4 shadow-lg">
+        <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <div className="bg-green-100 dark:bg-green-900 p-2 rounded-full mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </div>
+            <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M13 10V3L4 14h7v7l9-11h-7z" 
+              />
+            </svg>
             <div>
-              <h3 className="font-medium text-gray-900 dark:text-white text-base">
-                Update Available
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                A new version is available. Update now to get the latest features and fixes.
-              </p>
+              <p className="font-medium">App update available</p>
+              <p className="text-sm text-blue-200">Refresh to get the latest version</p>
             </div>
           </div>
-          <button 
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-        
-        <div className="mt-4">
-          <button
-            onClick={handleUpdate}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
-          >
-            Update Now
-          </button>
+          <div className="flex">
+            <button 
+              onClick={handleClose}
+              className="text-white mr-2 p-2 rounded-full hover:bg-blue-700"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            <button 
+              onClick={handleUpdate}
+              className="bg-white text-blue-600 py-1 px-3 rounded-md font-medium hover:bg-blue-50"
+            >
+              Update
+            </button>
+          </div>
         </div>
       </div>
     </div>

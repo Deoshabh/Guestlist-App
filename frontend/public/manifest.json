@@ -1,12 +1,12 @@
 {
   "id": "guest-manager-pwa",
-  "short_name": "Guest List",
-  "name": "Guest List Manager",
-  "description": "Manage your guest list efficiently",
+  "short_name": "Guest Mgr",
+  "name": "Guest Manager",
+  "description": "Manage your guest list easily with online and offline capabilities",
   "icons": [
     {
       "src": "favicon.ico",
-      "sizes": "64x64",
+      "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
@@ -19,24 +19,24 @@
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/?source=pwa",
   "display": "standalone",
   "display_override": ["window-controls-overlay"],
-  "theme_color": "#3b82f6",
+  "theme_color": "#4f46e5",
   "background_color": "#ffffff",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "dir": "ltr",
-  "lang": "en",
-  "categories": ["productivity", "utilities"],
+  "lang": "en-US",
+  "categories": ["productivity", "business"],
   "shortcuts": [
     {
       "name": "Add Guest",
       "short_name": "Add",
       "description": "Add a new guest",
-      "url": "/?action=add",
+      "url": "/?action=addGuest",
       "icons": [{ "src": "/shortcuts/add.png", "sizes": "96x96" }]
     },
     {
@@ -50,6 +50,11 @@
   "handle_links": "preferred",
   "scope": "/",
   "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    },
     {
       "src": "/screenshots/mobile1.png",
       "type": "image/png",

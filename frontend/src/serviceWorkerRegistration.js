@@ -15,6 +15,45 @@ const isLocalhost = Boolean(
     window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
 );
 
+// Export a function to detect if a service worker is registered
+export function checkServiceWorkerRegistration() {
+  if ('serviceWorker' in navigator) {
+    return navigator.serviceWorker.getRegistration()
+      .then(registration => {
+        return !!registration; // Convert to boolean
+      })
+      .catch(error => {
+        console.error('Error checking for service worker:', error);
+        return false;
+      });
+  }
+  return Promise.resolve(false);
+}
+
+// Send message to service worker
+export function sendMessageToServiceWorker(message) {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage(message);
+    return true;
+  }
+  return false;
+}
+
+// Tell service worker to cache important URLs
+export function cacheUrls(urls) {
+  return sendMessageToServiceWorker({
+    type: 'CACHE_URLS',
+    payload: urls
+  });
+}
+
+// Force service worker to activate immediately
+export function forceActivateServiceWorker() {
+  return sendMessageToServiceWorker({
+    type: 'SKIP_WAITING'
+  });
+}
+
 export function register(config) {
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     // The URL constructor is available in all browsers that support SW.
@@ -50,14 +89,24 @@ export function register(config) {
     // Handle service worker updates when a new version is waiting
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       console.log('New service worker activated');
+      // Notify the app that a refresh is needed
+      if (config && config.onControllerChange) {
+        config.onControllerChange();
+      }
     });
   }
 }
 
-function registerValidSW(swUrl, config) {
+const registerValidSW = (swUrl, config) => {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      // Add improved error handling for registration
+      if (!registration) {
+        console.error('Service worker registration failed: registration object is undefined');
+        return;
+      }
+
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -66,25 +115,21 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // At this point, the updated precached content has been fetched,
-              // but the previous service worker will still serve the older
-              // content until all client tabs are closed.
-              console.log(
-                'New content is available and will be used when all ' +
-                  'tabs for this page are closed. See https://cra.link/PWA.'
-              );
-
-              // Execute callback
+              // At this point, the updated precached content has been fetched
+              console.log('New content is available and will be used when all tabs for this page are closed');
+              
+              // Log more info about the changes to help debugging
+              console.log('Current controller:', navigator.serviceWorker.controller);
+              console.log('New worker state:', installingWorker.state);
+              
+              // Show a notification to the user about the update
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
             } else {
-              // At this point, everything has been precached.
-              // It's the perfect time to display a
-              // "Content is cached for offline use." message.
+              // At this point, everything has been precached
               console.log('Content is cached for offline use.');
-
-              // Execute callback
+              
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
@@ -92,23 +137,42 @@ function registerValidSW(swUrl, config) {
           }
         };
       };
+
+      // Add regular checks for service worker health
+      const refreshInterval = 1000 * 60 * 60; // 1 hour
+      setInterval(() => {
+        console.log('[SW Manager] Checking for updates...');
+        registration.update()
+          .catch(error => console.warn('Update check failed:', error));
+      }, refreshInterval);
       
-      // Check if we're offline and call the appropriate callback
-      if (!navigator.onLine && config && config.onOffline) {
-        config.onOffline();
-      }
+      // Document what static assets are currently being used to help diagnostics
+      // when troubleshooting cache problems
+      console.log('[SW Manager] Current page assets:');
+      const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .map(link => link.href);
+      const scripts = Array.from(document.querySelectorAll('script[src]'))
+        .map(script => script.src);
+      const images = Array.from(document.querySelectorAll('img[src]'))
+        .filter(img => img.src.startsWith(window.location.origin))
+        .map(img => img.src);
+        
+      console.log('- Styles:', styles);
+      console.log('- Scripts:', scripts);
+      console.log('- Images:', images);
+      
+      // Ask service worker to cache key assets from the current page
+      setTimeout(() => {
+        const assetsToCache = [...styles, ...scripts];
+        if (assetsToCache.length > 0) {
+          cacheUrls(assetsToCache);
+        }
+      }, 2000);
     })
     .catch((error) => {
       console.error('Error during service worker registration:', error);
     });
-    
-  // Listen for messages from the service worker
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'CACHE_UPDATED') {
-      console.log('New content has been cached');
-    }
-  });
-}
+};
 
 function checkValidServiceWorker(swUrl, config) {
   // Check if the service worker can be found. If it can't reload the page.
@@ -151,4 +215,28 @@ export function unregister() {
         console.error(error.message);
       });
   }
+}
+
+// Helper to clear all service worker caches
+export function clearAllCaches() {
+  if ('caches' in window) {
+    return caches.keys()
+      .then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            console.log(`Clearing cache: ${cacheName}`);
+            return caches.delete(cacheName);
+          })
+        );
+      })
+      .then(() => {
+        console.log('All caches cleared successfully');
+        return true;
+      })
+      .catch(error => {
+        console.error('Error clearing caches:', error);
+        return false;
+      });
+  }
+  return Promise.resolve(false);
 }

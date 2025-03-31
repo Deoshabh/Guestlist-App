@@ -6,6 +6,7 @@ const fileUpload = require('express-fileupload');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const guestRoutes = require('./routes/guestRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
@@ -37,6 +38,7 @@ mongoose.connect(MONGODB_URI)
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
+app.use('/api', healthRoutes); // No auth required for health checks
 app.use('/api/auth', authRoutes);
 app.use('/api/guests', authMiddleware, guestRoutes);
 

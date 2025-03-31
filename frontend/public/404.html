@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Page Not Found - Guest Manager</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f9f9f9;
+            color: #333;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        .container {
+            max-width: 500px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin-top: 0;
+            color: #4f46e5;
+        }
+        p {
+            margin: 0 0 1.5rem;
+            font-size: 1rem;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+        .btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #4338ca;
+        }
+        .error-code {
+            display: inline-block;
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 0 4px;
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #333;
+                color: #f9f9f9;
+            }
+            .container {
+                background-color: #1f1f1f;
+                color: #f9f9f9;
+            }
+            h1 {
+                color: #818cf8;
+            }
+            .error-code {
+                background: #374151;
+                color: #e5e7eb;
+            }
+        }
+    </style>
+    <script>
+        // This script tries to redirect the user to the right page if possible
+        // This handles cases where the user might be trying to access a client-side route
+        window.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Get the current path
+                const path = window.location.pathname;
+                
+                // Check if this looks like a client-side route that should be handled by the app
+                const possibleAppRoute = 
+                    path !== '/404.html' && 
+                    path !== '/offline.html' && 
+                    !path.includes('.') && 
+                    !path.startsWith('/api/');
+                
+                if (possibleAppRoute) {
+                    // This might be a valid route in the application
+                    // Redirect to the home page with the path as a route parameter
+                    const redirectUrl = '/?redirect=' + encodeURIComponent(path);
+                    
+                    // Set the home link to the redirect URL
+                    const homeLink = document.getElementById('home-link');
+                    if (homeLink) {
+                        homeLink.href = redirectUrl;
+                        
+                        // Auto-redirect after a short delay
+                        setTimeout(function() {
+                            window.location.href = redirectUrl;
+                        }, 2000);
+                    }
+                }
+            } catch (err) {
+                console.error('Error in 404 page redirect:', err);
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔍</div>
+        <h1>Page Not Found</h1>
+        <p>We couldn't find the page you were looking for.</p>
+        <p>This might be because:</p>
+        <ul style="text-align: left; margin-bottom: 20px;">
+            <li>The page has been moved or deleted</li>
+            <li>The URL was typed incorrectly</li>
+            <li>You clicked on a broken link</li>
+        </ul>
+        <a href="/" id="home-link" class="btn">Return to Home</a>
+    </div>
+    <script>
+        // Track 404s for analytics purposes
+        if (typeof gtag === 'function') {
+            gtag('event', '404_error', {
+                'page_location': window.location.href,
+                'page_path': window.location.pathname,
+                'page_referrer': document.referrer
+            });
+        }
+    </script>
+</body>
+</html>

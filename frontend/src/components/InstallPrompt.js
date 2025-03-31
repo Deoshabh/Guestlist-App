@@ -1,140 +1,162 @@
 import React, { useState, useEffect } from 'react';
 import haptic from '../utils/haptic';
+import serviceWorkerUtil from '../utils/serviceWorkerUtil';
 
 const InstallPrompt = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   
+  // Handle the beforeinstallprompt event
   useEffect(() => {
-    // Check if on iOS device
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    setIsIOS(isIOSDevice);
-    
-    // Only show the prompt once per day
-    const lastPrompt = localStorage.getItem('lastInstallPrompt');
-    const showInstallPrompt = !lastPrompt || (Date.now() - parseInt(lastPrompt, 10)) > 86400000; // 24 hours
-    
-    // Only show install prompt if not already installed
-    const isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
-                       window.navigator.standalone === true;
-                       
-    if (isInstalled) {
-      return; // Already installed, no need to show prompt
-    }
-    
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      // Prevent the default behavior
       e.preventDefault();
       
-      // Stash the event so it can be triggered later
+      // Store the event for later use
       setDeferredPrompt(e);
       
-      // Show the install prompt banner if conditions are met
-      if (showInstallPrompt) {
-        setTimeout(() => {
+      // Check if we should show the prompt
+      checkShouldShowPrompt().then(shouldShow => {
+        if (shouldShow) {
           setShowPrompt(true);
-        }, 3000); // Show after 3 seconds
-      }
+        }
+      });
     };
     
-    // Add event listener for beforeinstallprompt event
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    
-    // Show iOS specific instructions
-    if (isIOSDevice && showInstallPrompt) {
-      setTimeout(() => {
-        setShowPrompt(true);
-      }, 3000);
+    // Check if we're already in installed mode
+    if (serviceWorkerUtil.isAppInstalled()) {
+      return;
     }
+    
+    // Add the event listener
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
   
-  const handleInstallClick = async () => {
-    haptic.mediumFeedback();
+  // Check if we should show the install prompt
+  const checkShouldShowPrompt = async () => {
+    try {
+      // Don't show if already installed
+      if (serviceWorkerUtil.isAppInstalled()) {
+        return false;
+      }
+      
+      // Don't show if we've recently dismissed the prompt
+      const lastDismissed = localStorage.getItem('installPromptDismissed');
+      if (lastDismissed) {
+        const dismissedTime = parseInt(lastDismissed, 10);
+        const now = Date.now();
+        
+        // If dismissed less than 7 days ago, don't show again
+        if (now - dismissedTime < 7 * 24 * 60 * 60 * 1000) {
+          return false;
+        }
+      }
+      
+      // Only show after the user has spent some time on the site
+      const firstVisit = localStorage.getItem('firstVisit');
+      if (!firstVisit) {
+        localStorage.setItem('firstVisit', Date.now().toString());
+        return false;
+      } else {
+        const visitTime = parseInt(firstVisit, 10);
+        const now = Date.now();
+        
+        // If first visit was less than 5 minutes ago, don't show yet
+        if (now - visitTime < 5 * 60 * 1000) {
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error checking whether to show install prompt:', error);
+      return false;
+    }
+  };
+  
+  // Handle the install button click
+  const handleInstall = async () => {
+    try {
+      // Provide haptic feedback
+      haptic.mediumFeedback();
+      
+      // Hide the prompt
+      setShowPrompt(false);
+      
+      // Show the install prompt
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        
+        // Wait for the user's choice
+        const choiceResult = await deferredPrompt.userChoice;
+        
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        
+        // Clear the deferred prompt
+        setDeferredPrompt(null);
+      }
+    } catch (error) {
+      console.error('Error showing install prompt:', error);
+    }
+  };
+  
+  // Handle the dismiss button click
+  const handleDismiss = () => {
+    haptic.lightFeedback();
+    
+    // Remember that the user dismissed the prompt
+    localStorage.setItem('installPromptDismissed', Date.now().toString());
     
     // Hide the prompt
     setShowPrompt(false);
-    
-    // Update the last prompt time
-    localStorage.setItem('lastInstallPrompt', Date.now().toString());
-    
-    if (!deferredPrompt) {
-      return;
-    }
-    
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    
-    // Clear the saved prompt since it can't be used again
-    setDeferredPrompt(null);
-  };
-  
-  const handleClose = () => {
-    haptic.lightFeedback();
-    setShowPrompt(false);
-    localStorage.setItem('lastInstallPrompt', Date.now().toString());
   };
   
   if (!showPrompt) return null;
   
   return (
-    <div className="fixed bottom-16 inset-x-0 px-4 z-40 animate-slideUp">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 mx-auto max-w-md border border-blue-100 dark:border-blue-900">
+    <div className="fixed bottom-0 inset-x-0 px-4 pb-safe-bottom z-40 animate-slideUp">
+      <div className="bg-white dark:bg-gray-800 rounded-t-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-start">
-          <div className="flex items-center">
-            <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 dark:text-white text-base">
-                Install Guest Manager
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                {isIOS 
-                  ? "Tap the share icon and 'Add to Home Screen' to install" 
-                  : "Install this app on your device for faster access and offline use"}
-              </p>
+          <div className="flex-1">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Add to Home Screen
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Install this app on your device for a better experience with offline access.
+            </p>
+            <div className="mt-3 flex space-x-3">
+              <button
+                onClick={handleInstall}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Install
+              </button>
+              <button
+                onClick={handleDismiss}
+                className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Not Now
+              </button>
             </div>
           </div>
-          <button 
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+          <button
+            onClick={handleDismiss}
+            className="ml-4 p-2 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 111.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" clipRule="evenodd" />
+            <span className="sr-only">Close</span>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        
-        {!isIOS && (
-          <div className="mt-4">
-            <button
-              onClick={handleInstallClick}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
-            >
-              Install Now
-            </button>
-          </div>
-        )}
-        
-        {isIOS && (
-          <div className="mt-4 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-            <span>Tap the share icon below</span>
-          </div>
-        )}
       </div>
     </div>
   );

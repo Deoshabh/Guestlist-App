@@ -84,6 +84,8 @@ function App() {
     effectiveType: 'unknown',
   });
   const [activeTabIndex, setActiveTabIndex] = useState(0); // For bottom navbar
+  const [hasNetworkError, setHasNetworkError] = useState(false);
+  const [refreshAttempts, setRefreshAttempts] = useState(0);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : '/api';
 
@@ -155,8 +157,41 @@ function App() {
       }
     };
 
+    const handleNetworkError = () => {
+      setHasNetworkError(true);
+      // Increment refresh attempts to track persistent issues
+      setRefreshAttempts(prev => prev + 1);
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('error', (e) => {
+      // Only catch network-related errors
+      if (e.message && (
+          e.message.includes('network') || 
+          e.message.includes('failed to fetch') ||
+          e.message.includes('NetworkError')
+        )) {
+        handleNetworkError();
+      }
+    });
+
+    // Auto-recovery for network issues
+    if (refreshAttempts > 3 && hasNetworkError) {
+      const recovery = setTimeout(() => {
+        // Try to clear caches if multiple refresh attempts fail
+        if ('caches' in window) {
+          caches.keys().then(cacheNames => {
+            cacheNames.forEach(name => {
+              caches.delete(name);
+            });
+          });
+        }
+        window.location.reload();
+      }, 5000);
+      
+      return () => clearTimeout(recovery);
+    }
 
     // Check connection information if available
     if ('connection' in navigator) {
@@ -205,7 +240,7 @@ function App() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []); // fetchGuests omitted to avoid circular dependency
+  }, [hasNetworkError, refreshAttempts]); // fetchGuests omitted to avoid circular dependency
 
   // Update mobile state on resize with debouncing
   useEffect(() => {
@@ -641,6 +676,25 @@ function App() {
                 role="alert"
               >
                 <p>{error}</p>
+              </div>
+            )}
+
+            {hasNetworkError && (
+              <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 dark:bg-red-900 dark:text-red-200 rounded-md sticky top-0 z-50">
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="font-medium">Network error detected. Some features may not work.</p>
+                  </div>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-2 bg-red-200 dark:bg-red-800 px-4 py-2 rounded self-end text-sm"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
               </div>
             )}
             
