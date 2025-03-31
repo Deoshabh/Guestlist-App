@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import syncManager from '../utils/syncManager';
 
 // Create context
 const AuthContext = createContext();
@@ -27,6 +28,12 @@ export const AuthProvider = ({ children }) => {
       }
       
       console.log('API Base URL set to:', axios.defaults.baseURL);
+      
+      // Ensure we have proper content type for all requests
+      axios.defaults.headers.common['Content-Type'] = 'application/json';
+      
+      // Add withCredentials for CORS with credentials
+      axios.defaults.withCredentials = true;
     } catch (error) {
       console.error('Error setting axios defaults:', error);
     }
@@ -47,18 +54,47 @@ export const AuthProvider = ({ children }) => {
     return () => axios.interceptors.request.eject(interceptor);
   }, [token]);
 
+  // Update syncManager when token changes
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('token', token);
+      syncManager.setToken(token);
+      if (navigator.onLine) {
+        syncManager.syncPendingActions();
+      }
+    } else {
+      localStorage.removeItem('token');
+    }
+  }, [token]);
+
   // Login function with better error handling
   const login = useCallback(async (credentials) => {
     setLoginError(null);
+    
+    // For development testing and offline mode - provide a backup login
+    if (!navigator.onLine || process.env.NODE_ENV === 'development') {
+      console.log('Using offline/development login mode');
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      setToken(mockToken);
+      setUser({ 
+        id: 'user-1', 
+        username: credentials.username || 'user@example.com', 
+        name: 'Test User'
+      });
+      return { success: true, token: mockToken };
+    }
+    
     try {
       console.log('Attempting login with API at:', axios.defaults.baseURL);
-      const response = await axios.post('/api/auth/login', credentials);
       
-      const { token: newToken } = response.data;
+      // Use /auth/login instead of /api/auth/login since we set the base URL already
+      const response = await axios.post('/auth/login', credentials);
+      
+      const { token: newToken, user: userData } = response.data;
       setToken(newToken);
-      localStorage.setItem('token', newToken);
+      setUser(userData || { username: credentials.username });
       
-      return { success: true, token: newToken };
+      return { success: true, token: newToken, user: userData };
     } catch (error) {
       console.error('Login failed:', error);
       
@@ -78,17 +114,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Stub logout function
+  // Logout function
   const logout = useCallback(() => {
     setToken('');
     setUser(null);
     localStorage.removeItem('token');
   }, []);
 
-  // Stub register function
+  // Register function
   const register = useCallback(async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', userData);
+      // Use /auth/register instead of /api/auth/register since we set the base URL already
+      const response = await axios.post('/auth/register', userData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration failed:', error);
