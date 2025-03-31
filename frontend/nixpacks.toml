@@ -1,17 +1,19 @@
-# Git deployment configuration for PowerShell
-# If you encounter detached HEAD state or worktree issues:
-# git worktree list  # Check current worktrees
-# git checkout main  # Try to switch to main branch
-# git add .          # Add all changes
-# git commit -m "Your commit message"
-# git push --set-upstream origin new-main-branch  # For new branches
-# git push origin main  # For existing branches
+# Git deployment configuration for PowerShell with deployment fixes
+# If you encounter build issues with merge conflicts:
+# The fix-deployment.js script will automatically force-replace problematic files
 
 [environment]
 type = "node"
+DOCKER = "true"
+
+[phases.setup]
+nixPkgs = ["nodejs", "git"]
 
 [phases.install]
 cmds = ["npm install"]
+
+[phases.prebuild]
+cmds = ["node scripts/fix-deployment.js"]
 
 [phases.build]
 cmds = ["npm run build"]

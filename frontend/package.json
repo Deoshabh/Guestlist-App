@@ -11,12 +11,13 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "preinstall": "node scripts/fix-deployment.js || true",
     "start": "react-scripts start",
+    "prebuild": "node scripts/verify-build.js && node scripts/fix-merge-conflicts.js && node scripts/fix-deployment.js",
     "build": "node scripts/generate-fallback-icons.js && CI=false GENERATE_SOURCEMAP=false react-scripts build",
     "build:windows": "node scripts/generate-fallback-icons.js && set \"CI=false\" && set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "prebuild": "node scripts/verify-build.js",
     "postbuild": "node scripts/remove-source-maps.js"
   },
   "eslintConfig": {
