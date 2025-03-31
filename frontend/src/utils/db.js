@@ -418,6 +418,9 @@ const getContacts = async () => {
   });
 };
 
+// Export these functions as named exports to fix import errors
+export { saveContact, getContacts };
+
 // Define a named const before exporting to avoid anonymous default export warning
 const dbOperations = {
   getAllGuests,
