@@ -13,29 +13,31 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
   const [loginError, setLoginError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Configure axios with the correct backend URL
   useEffect(() => {
     try {
-      // Set the base URL from environment or use a relative path
-      const apiBaseUrl = process.env.REACT_APP_API_URL || '';
-      
-      // For deployments where the API is on a different domain
+      // Determine API URL based on environment
+      let apiBaseUrl;
       if (window.location.hostname === 'bhaujanvypar.com') {
-        axios.defaults.baseURL = 'https://api.bhaujanvypar.com';
+        apiBaseUrl = 'https://api.bhaujanvypar.com';
+      } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        apiBaseUrl = 'http://localhost:5000';
       } else {
-        axios.defaults.baseURL = apiBaseUrl;
+        apiBaseUrl = process.env.REACT_APP_API_URL || '';
       }
       
-      console.log('API Base URL set to:', axios.defaults.baseURL);
+      console.log('Setting API Base URL to:', apiBaseUrl);
+      axios.defaults.baseURL = apiBaseUrl;
       
-      // Ensure we have proper content type for all requests
+      // Disable withCredentials because we're using Bearer token
+      axios.defaults.withCredentials = false;
+      
+      // Set common headers
       axios.defaults.headers.common['Content-Type'] = 'application/json';
-      
-      // Add withCredentials for CORS with credentials
-      axios.defaults.withCredentials = true;
     } catch (error) {
-      console.error('Error setting axios defaults:', error);
+      console.error('Error configuring axios:', error);
     }
   }, []);
 
@@ -57,60 +59,105 @@ export const AuthProvider = ({ children }) => {
   // Update syncManager when token changes
   useEffect(() => {
     if (token) {
-      localStorage.setItem('token', token);
-      syncManager.setToken(token);
-      if (navigator.onLine) {
-        syncManager.syncPendingActions();
+      try {
+        localStorage.setItem('token', token);
+        syncManager.setToken(token);
+        if (navigator.onLine) {
+          syncManager.syncPendingActions().catch(err => 
+            console.warn('Background sync failed:', err)
+          );
+        }
+      } catch (err) {
+        console.error('Error in token effect:', err);
       }
     } else {
       localStorage.removeItem('token');
     }
   }, [token]);
 
-  // Login function with better error handling
+  // Login function with error handling and fallback to offline mode
   const login = useCallback(async (credentials) => {
     setLoginError(null);
-    
-    // For development testing and offline mode - provide a backup login
-    if (!navigator.onLine || process.env.NODE_ENV === 'development') {
-      console.log('Using offline/development login mode');
-      const mockToken = 'mock-jwt-token-' + Date.now();
-      setToken(mockToken);
-      setUser({ 
-        id: 'user-1', 
-        username: credentials.username || 'user@example.com', 
-        name: 'Test User'
-      });
-      return { success: true, token: mockToken };
-    }
+    setIsLoading(true);
     
     try {
-      console.log('Attempting login with API at:', axios.defaults.baseURL);
+      // For development testing and offline mode
+      if (!navigator.onLine || process.env.NODE_ENV === 'development') {
+        console.log('Using offline/development login mode');
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        const mockToken = 'mock-jwt-token-' + Date.now();
+        setToken(mockToken);
+        setUser({ 
+          id: 'user-1', 
+          username: credentials.username || 'user@example.com', 
+          name: 'Test User'
+        });
+        setIsLoading(false);
+        return { success: true, token: mockToken };
+      }
       
-      // Use /auth/login instead of /api/auth/login since we set the base URL already
+      // URL troubleshooting logs
+      console.log('Login attempt details:', {
+        baseURL: axios.defaults.baseURL,
+        endpoint: '/auth/login',
+        fullUrl: `${axios.defaults.baseURL}/auth/login`,
+        credentials: { ...credentials, password: '******' }
+      });
+      
+      // Production login
       const response = await axios.post('/auth/login', credentials);
+      console.log('Login response:', response.data);
       
       const { token: newToken, user: userData } = response.data;
       setToken(newToken);
       setUser(userData || { username: credentials.username });
+      setIsLoading(false);
       
       return { success: true, token: newToken, user: userData };
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Login error:', error);
+      let errorMessage;
       
-      // Handle specific error scenarios
       if (error.response) {
         // Server returned an error
-        setLoginError(error.response.data.error || 'Login failed. Please check your credentials.');
+        errorMessage = error.response.data.error || 'Login failed. Please check your credentials.';
+        console.log('Server returned error:', { 
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
       } else if (error.request) {
-        // Request was made but no response
-        setLoginError('Could not connect to the server. Please check your internet connection.');
+        // Request made but no response (network issue)
+        errorMessage = 'Could not connect to the server. Please check your internet connection.';
+        console.log('No response from server:', error.request);
+        
+        // Fall back to offline mode in production
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Falling back to offline mode in production');
+          const mockToken = 'offline-jwt-token-' + Date.now();
+          setToken(mockToken);
+          setUser({ 
+            id: 'offline-user', 
+            username: credentials.username || 'user@example.com',
+            name: 'Offline User', 
+            isOfflineLogin: true
+          });
+          setIsLoading(false);
+          return { 
+            success: true, 
+            token: mockToken,
+            isOfflineLogin: true,
+            message: 'Logged in offline mode. Changes will sync when connection is restored.'
+          };
+        }
       } else {
         // Something else went wrong
-        setLoginError('An error occurred during login. Please try again.');
+        errorMessage = 'An error occurred during login. Please try again.';
       }
       
-      return { success: false, error: error.response?.data?.error || error.message };
+      setLoginError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
     }
   }, []);
 
@@ -124,12 +171,16 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = useCallback(async (userData) => {
     try {
-      // Use /auth/register instead of /api/auth/register since we set the base URL already
+      setIsLoading(true);
       const response = await axios.post('/auth/register', userData);
+      setIsLoading(false);
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration failed:', error);
-      return { success: false, error: error.response?.data?.error || error.message };
+      setIsLoading(false);
+      
+      const errorMsg = error.response?.data?.error || error.message || 'Registration failed';
+      return { success: false, error: errorMsg };
     }
   }, []);
 
@@ -146,7 +197,7 @@ export const AuthProvider = ({ children }) => {
     setShowRegister,
     loginError,
     setLoginError,
-    isAuthenticated: !!token
+    isLoading
   };
 
   return (

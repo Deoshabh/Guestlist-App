@@ -22,42 +22,45 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ?
   process.env.ALLOWED_ORIGINS.split(',') : 
   ['https://bhaujanvypar.com', 'https://www.bhaujanvypar.com', 'http://localhost:3000'];
 
-// Improved CORS configuration for better security and preflight handling
-const corsOptions = {
+// Apply raw CORS headers first - this is critical for the preflight OPTIONS request
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Check if the origin is allowed
+  if (allowedOrigins.includes(origin) || !isProd) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  }
+  
+  // Handle OPTIONS method explicitly
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  
+  next();
+});
+
+// Now apply the cors middleware with the same settings
+app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests)
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1 || !isProd) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked request from origin: ${origin}`);
-      callback(null, false);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Length', 'X-Request-Id'],
   credentials: true,
-  maxAge: 86400, // 24 hours
-  optionsSuccessStatus: 204 // No content for OPTIONS responses
-};
-
-// Apply CORS middleware before other middleware
-app.use(cors(corsOptions));
-
-// Handle OPTIONS preflight requests explicitly
-app.options('*', (req, res) => {
-  // Set CORS headers explicitly for preflight
-  const origin = req.headers.origin;
-  if (!isProd || allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Max-Age', '86400');
-  }
-  res.status(204).end();
-});
+  maxAge: 86400
+}));
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -75,9 +78,13 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Routes
+// Routes - IMPORTANT CHANGE: Make auth routes available at both paths
+// This resolves the issue with frontend expecting /auth/login but backend using /api/auth/login
 app.use('/api', healthRoutes); // Health checks without auth
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);  // Original path
+app.use('/auth', authRoutes);      // New path to match frontend
+
+// Other routes
 app.use('/api/guests', authMiddleware, guestRoutes);
 app.use('/api/guest-groups', authMiddleware, guestGroupRoutes);
 
