@@ -4,7 +4,8 @@
 # git checkout main  # Try to switch to main branch
 # git add .          # Add all changes
 # git commit -m "Your commit message"
-# git push origin main
+# git push --set-upstream origin new-main-branch  # For new branches
+# git push origin main  # For existing branches
 
 [environment]
 type = "node"
