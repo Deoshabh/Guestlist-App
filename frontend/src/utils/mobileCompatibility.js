@@ -187,12 +187,33 @@ export function isPWAMode() {
  */
 export function toggleDesktopView() {
   try {
+    // Check for conflicting implementations
+    const hasRecoveryConflict = window.errorRecoveryInitialized || 
+                               (typeof window.attemptRecovery === 'function');
+    
+    // Log conflicts if found in development mode
+    if (process.env.NODE_ENV === 'development' && hasRecoveryConflict) {
+      console.warn('Potential conflict: Multiple error recovery implementations detected');
+    }
+    
     const currentValue = localStorage.getItem('forceDesktopView');
     const newValue = currentValue === 'true' ? null : 'true';
     
     if (newValue) {
       localStorage.setItem('forceDesktopView', newValue);
       console.log('Enabled desktop view mode');
+      
+      // Clean up potential conflicts
+      if (hasRecoveryConflict) {
+        try {
+          // Remove conflicting event listeners if possible
+          if (typeof window.__cleanupErrorListeners === 'function') {
+            window.__cleanupErrorListeners();
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
     } else {
       localStorage.removeItem('forceDesktopView');
       console.log('Enabled mobile view mode');
