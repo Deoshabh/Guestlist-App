@@ -23,7 +23,7 @@ const Navbar = ({
 
   return (
     <nav className="bg-white dark:bg-gray-800 shadow-sm mb-6 rounded-lg">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,31 +105,21 @@ const Navbar = ({
       {/* Mobile menu */}
       <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2`}>
         <button 
-<<<<<<< HEAD
           onClick={() => {
             toggleDarkMode();
             toggleMenu();
           }}
           className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
-=======
-          onClick={toggleDarkMode}
-          className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
->>>>>>> parent of 64b458f (New UI)
         >
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
         {isAuthenticated && (
           <button 
-<<<<<<< HEAD
             onClick={() => {
               logout();
               toggleMenu();
             }}
-            className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors touch-manipulation"
-=======
-            onClick={logout}
             className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors"
->>>>>>> parent of 64b458f (New UI)
           >
             Logout
           </button>
