@@ -68,7 +68,7 @@ const OfflineIndicator = () => {
       {isOffline ? (
         <>
           <span className="inline-block w-2 h-2 bg-red-600 rounded-full mr-2 animate-pulse"></span>
-          You're offline. Changes will sync when reconnected.
+          You&apos;re offline. Changes will sync when reconnected.
         </>
       ) : !hasInternetConnection ? (
         <>

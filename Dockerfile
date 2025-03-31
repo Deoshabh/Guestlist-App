@@ -1,39 +1,42 @@
-FROM node:16-alpine as frontend-build
+FROM node:16-alpine as builder
 
-WORKDIR /app/frontend
-COPY ./frontend/package*.json ./
-RUN npm ci
-COPY ./frontend ./
-RUN npm run build
+# Set environment variables
+ENV NODE_ENV=production
+ENV REACT_APP_API_URL=/api
+ENV NIXPACKS_PATH=/app
 
-FROM node:16-alpine
-
+# Set working directory
 WORKDIR /app
 
-# Copy backend files
-COPY ./backend/package*.json ./
+# Copy package files and install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --production=false
+
+# Copy frontend source code
+COPY frontend/ ./frontend/
+
+# Build the frontend
+WORKDIR /app/frontend
+RUN npm run build
+
+# Production image
+FROM node:16-alpine
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Set working directory
+WORKDIR /app
+
+# Copy backend code and built frontend
+COPY backend/ ./backend/
+COPY --from=builder /app/frontend/build ./frontend/build
+
+# Install backend dependencies
+WORKDIR /app/backend
+COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --production
-COPY ./backend ./
 
-# Copy the frontend build
-COPY --from=frontend-build /app/frontend/build ./public
-
-# Define NIXPACKS_PATH to prevent undefined variable warning
-ENV NIXPACKS_PATH=/app/nixpacks
-
-# If the variable is used in a command, ensure it's properly defined before use
-RUN if [ -z "${NIXPACKS_PATH}" ]; then \
-    echo "NIXPACKS_PATH is not set, using default" && \
-    export NIXPACKS_PATH=/app/nixpacks; \
-  fi
-
-# Remove reference to undefined variable and use a proper path
-# The NIXPACKS_PATH variable was undefined, so we're using a standard path instead
-# ENV NIXPACKS_PATH=/app
-# COPY $NIXPACKS_PATH/start.sh /app/start.sh
-COPY ./start.sh /app/start.sh
-RUN chmod +x ./start.sh
-
-EXPOSE 5000
-
-CMD ["./start.sh"]
+# Set the default command to run the server
+CMD ["npm", "start"]

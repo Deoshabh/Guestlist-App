@@ -13,6 +13,10 @@ const VirtualList = ({
   const [visibleItems, setVisibleItems] = useState([]);
   const containerRef = useRef(null);
   
+  const handleScroll = useCallback(() => {
+    window.requestAnimationFrame(updateVisibleItems);
+  }, [updateVisibleItems]);
+  
   const updateVisibleItems = useCallback(() => {
     if (!containerRef.current) return;
     
@@ -35,11 +39,7 @@ const VirtualList = ({
         key: keyExtractor(item, startIndex + index)
       }))
     );
-  };
-  
-  const handleScroll = () => {
-    window.requestAnimationFrame(updateVisibleItems);
-  };
+  }, [items, itemHeight, overscan, keyExtractor]);
   
   // Add passive scrolling for better performance on mobile
   useEffect(() => {
@@ -50,7 +50,7 @@ const VirtualList = ({
         currentRef.removeEventListener('scroll', handleScroll);
       };
     }
-  }, [items, itemHeight, updateVisibleItems, handleScroll]);
+  }, [handleScroll]);
   
   // Total height of all items
   const totalHeight = items.length * itemHeight;

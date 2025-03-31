@@ -6,8 +6,7 @@ const Navbar = ({
   darkMode = false,
   toggleDarkMode = () => {},
   logout = () => {},
-  isAuthenticated = false,
-  isMobile = false
+  isAuthenticated = false
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 

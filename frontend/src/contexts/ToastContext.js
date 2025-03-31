@@ -16,6 +16,13 @@ export const ToastProvider = ({ children }) => {
   // State to store active toasts
   const [toasts, setToasts] = useState([]);
   
+  // Function to remove a toast by ID
+  const hideToast = useCallback((id) => {
+    setToasts((currentToasts) => 
+      currentToasts.filter((toast) => toast.id !== id)
+    );
+  }, []);
+  
   // Function to add a new toast notification
   const showToast = useCallback((message, type = 'info', duration = 3000) => {
     // Create a unique ID for this toast
@@ -34,19 +41,29 @@ export const ToastProvider = ({ children }) => {
     
     return id; // Return ID so it can be used to hide toast programmatically
   }, [hideToast]);
+
+  // Convenience methods for different toast types
+  const success = useCallback((message, duration) => 
+    showToast(message, 'success', duration), [showToast]);
   
-  // Function to remove a toast by ID
-  const hideToast = useCallback((id) => {
-    setToasts((currentToasts) => 
-      currentToasts.filter((toast) => toast.id !== id)
-    );
-  }, []);
+  const error = useCallback((message, duration) => 
+    showToast(message, 'error', duration), [showToast]);
+  
+  const warning = useCallback((message, duration) => 
+    showToast(message, 'warning', duration), [showToast]);
+  
+  const info = useCallback((message, duration) => 
+    showToast(message, 'info', duration), [showToast]);
 
   // The value to be provided to consumers
   const contextValue = {
     toasts,
     showToast,
     hideToast,
+    success,
+    error,
+    warning,
+    info
   };
 
   return (

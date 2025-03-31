@@ -93,7 +93,7 @@ const PullToRefreshWrapper = ({
       setPullY(0);
       setIsPulling(false);
     }
-  }, [isPulling, disabled, pullY, pullDistance, onRefresh, isLoading, haptic]);
+  }, [isPulling, disabled, pullY, pullDistance, onRefresh, isLoading]);
 
   useEffect(() => {
     window.addEventListener('touchstart', handleTouchStart, { passive: true });

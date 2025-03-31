@@ -77,7 +77,7 @@ const PlaceholderHelp = ({ compact = false, className = '' }) => {
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
         <p>
           <strong>Tip:</strong> You can combine multiple placeholders in a message. 
-          For example: "Hello {{firstname}}, we're excited to see you at the {{group}} event on {{date}}!"
+          For example: &ldquo;Hello {{firstname}}, we&apos;re excited to see you at the {{group}} event on {{date}}!&rdquo;
         </p>
       </div>
     </div>
