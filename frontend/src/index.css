@@ -16,9 +16,44 @@ code {
     monospace;
 }
 
+@layer base {
+  /* Enable smooth scrolling for better UX */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Safe area for iOS devices */
+  .h-safe-area {
+    height: env(safe-area-inset-bottom, 0);
+  }
+  
+  /* Improve tap highlight color for mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Base scrolling improvements */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+}
+
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-md transition-colors duration-200 font-medium;
+    @apply px-4 py-2 rounded-md transition-colors duration-200 font-medium touch-manipulation;
   }
   
   .btn-primary {
@@ -38,32 +73,93 @@ code {
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-md dark:bg-gray-800 p-4 transition-all duration-200;
+    @apply bg-white rounded-lg shadow-md dark:bg-gray-800 p-4 transition-all duration-200 hover:shadow-lg;
   }
   
   .touch-manipulation {
     touch-action: manipulation;
   }
   
+  /* Add animation for tab change in bottom navbar */
+  .tab-indicator {
+    @apply absolute bottom-0 left-0 h-1 bg-primary transition-all duration-300;
+  }
+  
+  /* Improved touch targets for mobile */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Form improvements */
+  .form-input {
+    @apply px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent w-full dark:bg-gray-800 dark:border-gray-600 dark:text-white;
+  }
+  
+  /* Bottom navbar styles */
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center py-2 px-4 transition-colors duration-200;
+  }
+  
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+  
+  .bottom-nav-item-text {
+    @apply text-xs mt-1;
+  }
+  
+  /* Ripple effect for buttons */
+  @keyframes ripple {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+  
+  .animate-ripple {
+    animation: ripple 0.6s linear;
+  }
+  
+  /* Enhanced card design */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:translate-y-[-2px];
+  }
+  
   /* Responsive table improvements */
   @media (max-width: 640px) {
     .responsive-table td {
-      @apply py-3;
+      @apply py-4;
     }
     
     .responsive-table button {
-      @apply my-1 w-full;
+      @apply my-1.5 w-full py-3;
+    }
+    
+    /* Enhanced scrolling for tables on mobile */
+    .table-container {
+      @apply overflow-x-auto -mx-4 px-4 pb-2;
+      scrollbar-width: none; /* For Firefox */
+    }
+    
+    .table-container::-webkit-scrollbar {
+      height: 4px;
     }
   }
   
   /* Mobile optimizations for modals */
   @media (max-width: 640px) {
-    .btn {
+    .btn, .input, button, .form-control {
       @apply py-3; /* Larger touch target */
     }
     
-    .input {
-      @apply py-3; /* Larger touch target */
+    /* Bottom nav bar specific styles */
+    .bottom-navbar {
+      @apply fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-lg z-50;
+    }
+    
+    /* Additional spacing for content to avoid being hidden behind the bottom navbar */
+    .content-with-bottom-nav {
+      @apply pb-20;
     }
   }
 }
@@ -91,6 +187,27 @@ code {
     @apply bg-gray-500;
   }
   
+  /* Badge styling */
+  .badge {
+    @apply inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full;
+  }
+  
+  .badge-primary {
+    @apply bg-primary/20 text-primary dark:bg-primary/30 dark:text-primary-100;
+  }
+  
+  .badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+  
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+  
+  .badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+  
   .animate-fadeIn {
     animation: fadeIn 0.3s ease-in-out;
   }
@@ -99,15 +216,64 @@ code {
     animation: progressBar 2s infinite linear;
     width: 100%;
   }
+  
+  .animate-scaleIn {
+    animation: scaleIn 0.3s ease-out;
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Additional utilities for mobile optimization */
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 1rem);
+  }
+  
+  /* Ripple effect */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    background-color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    animation: rippleAnimation 0.6s linear;
+  }
+  
+  .ripple-button {
+    position: relative;
+    overflow: hidden;
+  }
 }
 
 /* New animations for enhanced UX */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes progressBar {
   from { width: 0; }
   to { width: 100%; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes rippleAnimation {
+  from {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(2);
+    opacity: 0;
+  }
 }

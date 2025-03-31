@@ -18,7 +18,7 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Guest List Manager</h1>
           </div>
           
-          {/* Desktop menu */}
+          {/* Desktop menu - hidden on mobile since we have bottom nav */}
           <div className="hidden md:flex items-center space-x-3">
             <button 
               onClick={toggleDarkMode}
@@ -56,11 +56,11 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
             )}
           </div>
           
-          {/* Mobile menu button */}
+          {/* Mobile toggle button for additional options (not main navigation) */}
           <div className="md:hidden flex items-center">
             <button
               onClick={toggleMenu}
-              className="outline-none mobile-menu-button"
+              className="outline-none mobile-menu-button touch-manipulation"
               aria-label="Toggle menu"
             >
               <svg
@@ -83,11 +83,11 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
         </div>
       </div>
       
-      {/* Mobile menu */}
-      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2`}>
+      {/* Mobile menu - simplified to avoid duplication with bottom nav */}
+      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2 animate-slideDown`}>
         <button 
           onClick={toggleDarkMode}
-          className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
+          className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
         >
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
@@ -95,7 +95,7 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
         {isAuthenticated && (
           <button 
             onClick={logout}
-            className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors"
+            className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors touch-manipulation"
           >
             Logout
           </button>
