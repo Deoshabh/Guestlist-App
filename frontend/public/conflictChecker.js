@@ -47,7 +47,7 @@
     {
       group: 'Icon Generation',
       files: [
-        '/public/generateIcons.js',
+        // Removing reference to generateIcons.js
         '/scripts/generate-fallback-icons.js'
       ],
       description: 'Multiple implementations for icon generation'

@@ -1,12 +1,16 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
-import { ToastProvider } from './components/ToastManager';
-import ErrorBoundary from './components/ErrorBoundary';
-import analytics from './utils/analytics';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import reportWebVitals from './reportWebVitals';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { UIProvider } from './contexts/UIContext';
+import { GuestProvider } from './contexts/GuestContext';
+import { NetworkProvider } from './contexts/NetworkContext';
+import { ToastProvider } from './contexts/ToastContext';
+import analytics from './utils/analytics';
 
 // Initialize analytics safely
 analytics.init();
@@ -26,15 +30,23 @@ serviceWorkerRegistration.register({
 });
 
 // Create root and render app
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
+ReactDOM.render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
+    <BrowserRouter>
+      <NetworkProvider>
+        <AuthProvider>
+          <UIProvider>
+            <GuestProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </GuestProvider>
+          </UIProvider>
+        </AuthProvider>
+      </NetworkProvider>
+    </BrowserRouter>
+  </React.StrictMode>,
+  document.getElementById('root')
 );
 
 // If you want to start measuring performance in your app, pass a function

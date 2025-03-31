@@ -66,7 +66,6 @@ const conflictGroups = [
   {
     group: 'Icon Generation',
     files: [
-      'public/generateIcons.js',
       'scripts/generate-fallback-icons.js'
     ],
     description: 'Multiple implementations for icon generation'

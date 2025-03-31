@@ -43,11 +43,7 @@ function AppContent() {
     if (process.env.NODE_ENV === 'production') {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('debug')) {
-        console.log('Debug mode enabled - loading sourcemaps');
-        const script = document.createElement('script');
-        script.src = '/enableSourceMaps.js';
-        script.async = true;
-        document.head.appendChild(script);
+        console.log('Debug mode enabled');
       }
     }
   }, []);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Navbar from '../Navbar';
 import BottomNavbar from '../BottomNavbar';
 import FloatingActionButton from '../FloatingActionButton';
@@ -11,11 +11,24 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGuests } from '../../contexts/GuestContext';
 
-const MainLayout = ({ children, quickActions, bottomNavItems }) => {
-  const { isMobile, darkMode, isDesktopForced, activeTabIndex, handleBottomNavClick } = useUI();
-  const { isOnline, error, hasNetworkError } = useNetwork();
-  const { logout } = useAuth();
-  const { fetchGuests, loading } = useGuests();
+const MainLayout = ({ 
+  children, 
+  fetchGuests = () => {}, 
+  loading = false,
+  error = null,
+  logout = () => {}
+}) => {
+  const { isOnline, hasNetworkError } = useNetwork();
+  const { darkMode, isMobile, isDesktopForced } = useUI();
+  const [quickActions, bottomNavItems, activeTabIndex, handleBottomNavClick] = useNavigationItems();
+
+  // Remove any references to errorRecovery.js if they exist
+  // Implement basic error handling if needed
+  useEffect(() => {
+    if (error && typeof error === 'string') {
+      console.error('Application error:', error);
+    }
+  }, [error]);
 
   return (
     <div className={`App ${darkMode ? 'dark' : ''} min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6`}>
