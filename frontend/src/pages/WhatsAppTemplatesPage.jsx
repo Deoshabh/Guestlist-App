@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastManager';
 import haptic from '../utils/haptic';
@@ -15,13 +15,8 @@ const WhatsAppTemplatesPage = () => {
   const toast = useToast();
   const navigate = useNavigate();
 
-  // Load all templates on component mount
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
   // Load templates from IndexedDB
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
       const allTemplates = await db.getAllMessageTemplates();
@@ -32,7 +27,12 @@ const WhatsAppTemplatesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Load all templates on component mount
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
   // Save a new template
   const handleSaveTemplate = async (e) => {
@@ -144,7 +144,7 @@ const WhatsAppTemplatesPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               <p className="mt-4 text-gray-600 dark:text-gray-400">
-                You haven't created any WhatsApp templates yet.
+                You haven&apos;t created any WhatsApp templates yet.
               </p>
               <p className="text-gray-500 dark:text-gray-500">
                 Templates help you send consistent messages quickly.

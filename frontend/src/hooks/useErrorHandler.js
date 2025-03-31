@@ -85,7 +85,6 @@ export default function useErrorHandler() {
     
     let attempts = 0;
     let success = false;
-    let lastError = null;
 
     while (attempts < retryCount && !success) {
       try {
@@ -98,7 +97,6 @@ export default function useErrorHandler() {
         success = true;
       } catch (error) {
         attempts++;
-        lastError = error;
         
         // Only show toast on final failure
         if (attempts >= retryCount) {

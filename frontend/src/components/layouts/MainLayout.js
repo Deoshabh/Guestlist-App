@@ -8,8 +8,7 @@ import ServiceWorkerUpdater from '../ServiceWorkerUpdater';
 import InstallPrompt from '../InstallPrompt';
 import { useUI } from '../../contexts/UIContext';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { useGuests } from '../../contexts/GuestContext';
+import { useNavigationItems } from '../../hooks/useNavigationItems';
 
 const MainLayout = ({ 
   children, 

@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
@@ -20,7 +20,7 @@ serviceWorkerRegistration.register({
   onSuccess: (registration) => {
     console.log('ServiceWorker registration successful with scope: ', registration.scope);
   },
-  onUpdate: (registration) => {
+  onUpdate: () => {
     console.log('ServiceWorker update available. New content will be used when all tabs are closed.');
     // You can show a notification to the user here
   },
@@ -30,7 +30,8 @@ serviceWorkerRegistration.register({
 });
 
 // Create root and render app
-ReactDOM.render(
+const root = createRoot(document.getElementById('root'));
+root.render(
   <React.StrictMode>
     <BrowserRouter>
       <NetworkProvider>
@@ -45,8 +46,7 @@ ReactDOM.render(
         </AuthProvider>
       </NetworkProvider>
     </BrowserRouter>
-  </React.StrictMode>,
-  document.getElementById('root')
+  </React.StrictMode>
 );
 
 // If you want to start measuring performance in your app, pass a function

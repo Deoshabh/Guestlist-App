@@ -76,7 +76,7 @@ serviceWorkerRegistration.register({
     console.log('Service Worker registration successful with scope:', registration.scope);
   },
   onUpdate: (registration) => {
-    console.log('New content is available; please refresh.');
+    console.log('New content is available; please refresh.', registration);
   },
   onOffline: () => {
     console.log('App is running in offline mode');

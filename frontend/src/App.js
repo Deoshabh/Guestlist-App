@@ -19,7 +19,7 @@ import ConnectivityMonitor from './components/ConnectivityMonitor';
 
 function AppContent() {
   const { token, showRegister, setShowRegister, setToken } = useAuth();
-  const { darkMode, isMobile, setActiveTabIndex } = useUI();
+  const { darkMode, setActiveTabIndex } = useUI();
   const { isOnline, API_BASE_URL } = useNetwork();
   const { guests } = useGuests();
   const toast = useToast();

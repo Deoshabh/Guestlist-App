@@ -185,5 +185,6 @@ export default {
   optOut,
   optIn,
   isBlocked: () => isBlocked,
-  isEnabled: () => isEnabled && !isBlocked
+  isEnabled: () => isEnabled && !isBlocked,
+  isInitialized: () => isInitialized
 };
