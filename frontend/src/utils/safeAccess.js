@@ -89,7 +89,10 @@ export const safeHas = (obj, path) => {
     
     // Handle direct property access
     if (!path.includes('.')) {
-      return obj.hasOwnProperty(path);
+      // Fixed ESLint no-prototype-builtins error
+      // Using Object.prototype.hasOwnProperty.call instead of direct method access
+      // This prevents issues if the object has a custom hasOwnProperty implementation
+      return Object.prototype.hasOwnProperty.call(obj, path);
     }
     
     // Handle nested properties
@@ -104,7 +107,9 @@ export const safeHas = (obj, path) => {
       current = current[key];
     }
     
-    return current.hasOwnProperty(keys[keys.length - 1]);
+    // Fixed ESLint no-prototype-builtins error
+    // Using Object.prototype.hasOwnProperty.call instead of direct method access
+    return Object.prototype.hasOwnProperty.call(current, keys[keys.length - 1]);
   } catch (error) {
     console.warn(`Error checking if ${path} exists:`, error);
     return false;
