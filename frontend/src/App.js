@@ -21,7 +21,6 @@ import analytics from './utils/analytics';
 import { safeGet } from './utils/safeAccess';
 import { applyMobilePatches } from './utils/mobileCompatibility';
 import serviceWorkerUtil from './utils/serviceWorkerUtil';
-import { monitorMobileErrors } from './utils/mobileRecovery';
 
 // Utility to detect mobile devices with more reliability
 const detectMobileDevice = () => {
@@ -414,13 +413,6 @@ function App() {
       }
     } catch (error) {
       console.error('Error applying mobile patches:', error);
-    }
-  }, [isMobile]);
-
-  // Monitor for mobile errors
-  useEffect(() => {
-    if (isMobile) {
-      monitorMobileErrors();
     }
   }, [isMobile]);
 
