@@ -21,6 +21,10 @@ const PlaceholderHelp = ({ compact = false, className = '' }) => {
     { id: 'year', label: 'Current Year', value: '{{year}}', description: 'Replaced with the current year' }
   ];
 
+  const firstname = 'FIRSTNAME';
+  const group = 'GROUP_NAME';
+  const date = 'EVENT_DATE';
+
   return (
     <div className={`border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 ${className}`}>
       <h3 className="font-medium text-gray-900 dark:text-white mb-3">Placeholder Reference</h3>
