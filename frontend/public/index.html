@@ -10,22 +10,36 @@
     <!-- Load startup script before everything else -->
     <script src="/startup.js"></script>
 
-    <!-- Fix CORS issues by not loading Google Analytics -->
+    <!-- Block analytics to avoid CORS errors -->
     <script>
-      // Block analytics to avoid CORS errors
+      // Block analytics requests to prevent console errors
       window.ga = function() {};
       window.gtag = function() {};
+      
+      // Handle icon loading errors
+      window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'LINK' && e.target.rel === 'icon' || e.target.rel === 'apple-touch-icon') {
+          // Prevent error propagation
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Try to use fallback icon
+          var iconSize = e.target.sizes ? e.target.sizes.value.split('x')[0] : '192';
+          e.target.href = '/logo' + iconSize + '.png.js';
+          return true;
+        }
+      }, true);
     </script>
 
     <!-- Preconnect to API domain to improve performance -->
     <link rel="preconnect" href="https://api.bhaujanvypar.com" />
 
-    <!-- Ensure icons are explicitly available -->
-    <link rel="apple-touch-icon" href="/logo192.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/logo192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/logo512.png" />
+    <!-- Ensure icons are explicitly available with onerror handlers -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" onerror="this.onerror=null; this.href='/logo192.png.js';" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/logo192.png" onerror="this.onerror=null; this.href='/logo192.png.js';" />
+    <link rel="icon" type="image/png" sizes="512x512" href="%PUBLIC_URL%/logo512.png" onerror="this.onerror=null; this.href='/logo512.png.js';" />
 
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
     <!-- Added meta tags for security -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
