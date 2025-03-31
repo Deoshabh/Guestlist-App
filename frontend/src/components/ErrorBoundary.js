@@ -6,20 +6,43 @@ class ErrorBoundary extends Component {
     this.state = { 
       hasError: false, 
       error: null, 
-      errorInfo: null 
+      errorInfo: null,
+      isMobileError: false
     };
     this.handleRetry = this.handleRetry.bind(this);
   }
 
   static getDerivedStateFromError(error) {
+    // Check if it's likely a mobile-specific error
+    const isMobileError = error?.message?.includes('map') || 
+                          error?.stack?.includes('mobile') ||
+                          error?.stack?.includes('BottomNavbar') ||
+                          error?.stack?.includes('FloatingActionButton');
+    
     // Update state so the next render will show the fallback UI
-    return { hasError: true, error };
+    return { 
+      hasError: true, 
+      error,
+      isMobileError
+    };
   }
 
   componentDidCatch(error, errorInfo) {
     // Log the error to an error reporting service
     console.error('Error caught by ErrorBoundary:', error, errorInfo);
     this.setState({ errorInfo });
+    
+    // Add detailed logging for debugging mobile issues
+    if (window.innerWidth <= 768) {
+      console.log('Mobile environment details:',
+        {
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          userAgent: navigator.userAgent,
+          error: error.toString(),
+          stack: error.stack
+        }
+      );
+    }
     
     // Check if the error is related to analytics
     const isAnalyticsError = 
@@ -47,7 +70,8 @@ class ErrorBoundary extends Component {
         window.gtag('event', 'javascript_error', {
           'error_message': error.message,
           'error_stack': error.stack,
-          'component': errorInfo.componentStack
+          'component': errorInfo.componentStack,
+          'is_mobile': window.innerWidth <= 768 ? 'yes' : 'no'
         });
       } catch (loggingError) {
         console.error('Failed to log error to analytics:', loggingError);
@@ -56,7 +80,7 @@ class ErrorBoundary extends Component {
   }
 
   handleRetry() {
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    this.setState({ hasError: false, error: null, errorInfo: null, isMobileError: false });
   }
 
   render() {
@@ -68,7 +92,10 @@ class ErrorBoundary extends Component {
             Something went wrong
           </h2>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            The application encountered an unexpected error. Please try again or refresh the page.
+            {this.state.isMobileError 
+              ? "We've encountered an issue with the mobile view. Try switching to desktop view or refreshing the page."
+              : "The application encountered an unexpected error. Please try again or refresh the page."
+            }
           </p>
           {this.state.error && (
             <details className="mb-4">
@@ -82,13 +109,25 @@ class ErrorBoundary extends Component {
               </pre>
             </details>
           )}
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap space-x-2 space-y-2 sm:space-y-0">
             <button 
               onClick={this.handleRetry} 
               className="btn btn-primary"
             >
               Try Again
             </button>
+            {this.state.isMobileError && (
+              <button
+                onClick={() => {
+                  // Force desktop view by setting a localStorage flag
+                  localStorage.setItem('forceDesktopView', 'true');
+                  window.location.reload();
+                }}
+                className="btn btn-secondary"
+              >
+                Switch to Desktop View
+              </button>
+            )}
             <button 
               onClick={() => window.location.reload()} 
               className="btn btn-outline"

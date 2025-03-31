@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -18,9 +18,10 @@ import syncManager from './utils/syncManager';
 import haptic from './utils/haptic';
 import analytics from './utils/analytics';
 import { safeGet } from './utils/safeAccess';
+import { applyMobilePatches } from './utils/mobileCompatibility';
 
 // Utility to detect mobile devices
-const isMobileDevice = () => {
+const detectMobileDevice = () => {
   try {
     return (
       window.innerWidth <= 768 ||
@@ -37,7 +38,6 @@ const isMobileDevice = () => {
 const calculateStats = (guests) => {
   try {
     if (!Array.isArray(guests)) return { total: 0, invited: 0, pending: 0 };
-    
     const total = guests.filter((g) => !g?.deleted).length;
     const invited = guests.filter((g) => g?.invited && !g?.deleted).length;
     return { total, invited, pending: total - invited };
@@ -57,8 +57,7 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isMobile, setIsMobile] = useState(isMobileDevice());
-  // eslint-disable-next-line no-unused-vars
+  const [isMobile, setIsMobile] = useState(detectMobileDevice());
   const [networkStatus, setNetworkStatus] = useState({
     type: 'unknown',
     effectiveType: 'unknown',
@@ -91,8 +90,6 @@ function App() {
     try {
       document.documentElement.classList.toggle('dark', darkMode);
       localStorage.setItem('darkMode', darkMode);
-      
-      // Log dark mode change to analytics
       analytics.event('Settings', 'Toggle Dark Mode', darkMode ? 'On' : 'Off');
     } catch (error) {
       console.error('Error setting dark mode:', error);
@@ -112,7 +109,7 @@ function App() {
         console.error('Error handling online status:', error);
       }
     };
-    
+
     const handleOffline = () => {
       try {
         setIsOnline(false);
@@ -123,7 +120,7 @@ function App() {
         console.error('Error handling offline status:', error);
       }
     };
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -134,7 +131,6 @@ function App() {
           type: connection?.type || 'unknown',
           effectiveType: connection?.effectiveType || 'unknown',
         });
-        
         connection?.addEventListener('change', () => {
           try {
             setNetworkStatus({
@@ -154,18 +150,14 @@ function App() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if ('connection' in navigator) {
-        try {
-          navigator.connection?.removeEventListener('change', () => {});
-        } catch (error) {
-          console.error('Error removing connection listener:', error);
-        }
+        navigator.connection?.removeEventListener('change', () => {});
       }
     };
-  }, []); // Note: fetchGuests omitted from deps to avoid circular dependency
+  }, []); // fetchGuests omitted to avoid circular dependency
 
   // Update mobile state on resize
   useEffect(() => {
-    const handleResize = () => setIsMobile(isMobileDevice());
+    const handleResize = () => setIsMobile(detectMobileDevice());
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -176,17 +168,14 @@ function App() {
       syncManager.setToken(token);
       syncManager.syncPendingActions();
     }
-  }, [token]); // Only trigger on token change
+  }, [token, isOnline]);
 
   // Enable sourcemaps for debugging in production
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
-      // Check if URL has a debug parameter
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('debug')) {
         console.log('Debug mode enabled - loading sourcemaps');
-        
-        // Create a script element to load the sourcemap
         const script = document.createElement('script');
         script.src = '/enableSourceMaps.js';
         script.async = true;
@@ -197,22 +186,17 @@ function App() {
 
   // Handle analytics initialization
   useEffect(() => {
-    // Instead of using analytics directly, wrap in try-catch to prevent critical errors
     try {
-      // The analytics ID should come from environment variables
       const analyticsId = process.env.REACT_APP_GA_ID || 'G-03XW3FWG7L';
-      
-      // Initialize analytics with proper error handling
-      if (isOnline && !localStorage.getItem('analytics_opt_out')) {
-        analytics.init(analyticsId).catch(err => {
+      if (!localStorage.getItem('analytics_opt_out')) {
+        analytics.init(analyticsId).catch((err) => {
           console.warn('Analytics initialization error (non-critical):', err);
         });
       }
     } catch (error) {
       console.warn('Failed to initialize analytics:', error);
-      // Don't rethrow - this is non-critical functionality
     }
-  }, [isOnline]);
+  }, []); // Removed isOnline dependency
 
   // Fetch guests with improved error handling
   const fetchGuests = useCallback(async () => {
@@ -229,7 +213,6 @@ function App() {
           await db.saveGuests(res.data).catch((dbErr) =>
             console.warn('Failed to save to local DB:', dbErr)
           );
-          
           try {
             const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -237,34 +220,32 @@ function App() {
             setStats(statsRes.data);
           } catch (statsErr) {
             console.error('Error fetching stats, using calculated:', statsErr);
-            // Fallback to calculated stats
             setStats(calculateStats(res.data));
           }
         } catch (apiErr) {
           console.error('API Error:', apiErr);
-          // Try fetching from local DB as fallback
-          const localGuests = await db.getGuests().catch(() => []);
+          const localGuests = await db.getAllGuests().catch(() => []);
           if (localGuests && localGuests.length > 0) {
             setGuests(localGuests);
             setStats(calculateStats(localGuests));
             setError('Could not connect to server. Showing cached data.');
           } else {
-            setError('Failed to load guests. Please check your connection and try again.');
+            setError('Failed to load guests. Please check your connection.');
           }
         }
       } else {
-        // Offline mode
-        const localGuests = await db.getGuests().catch(() => []);
+        const localGuests = await db.getAllGuests().catch(() => []);
         setGuests(localGuests);
         setStats(calculateStats(localGuests));
+        setError('You are offline. Showing locally saved data.');
       }
     } catch (err) {
       console.error('Error in fetchGuests:', err);
-      setError('An unexpected error occurred. Please try refreshing the page.');
+      setError('An unexpected error occurred. Please try refreshing.');
     } finally {
       setLoading(false);
     }
-  }, [token, API_BASE_URL, setError, setGuests, setStats, setLoading]);
+  }, [token, API_BASE_URL]);
 
   // Fetch guests on token change
   useEffect(() => {
@@ -295,92 +276,109 @@ function App() {
     }
   }, []);
 
-  // Enhanced quick actions for the FAB with better mobile experience
-  const quickActions = [
-    {
-      label: 'Add Guest',
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-          />
-        </svg>
-      ),
-      onClick: () => {
-        const addForm = document.querySelector('.guest-form');
-        if (addForm) {
-          addForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          // Focus on the first input for better UX
-          setTimeout(() => {
-            const firstInput = addForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }, 500);
-        }
+  // Apply mobile patches
+  useEffect(() => {
+    try {
+      if (isMobile) {
+        applyMobilePatches();
+      }
+    } catch (error) {
+      console.error('Error applying mobile patches:', error);
+    }
+  }, [isMobile]);
+
+  // Quick actions for FAB
+  const quickActions = useMemo(
+    () => [
+      {
+        label: 'Add Guest',
+        icon: (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+            />
+          </svg>
+        ),
+        onClick: () => {
+          try {
+            const addForm = document.querySelector('.guest-form');
+            if (addForm) {
+              addForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              setTimeout(() => {
+                const firstInput = addForm.querySelector('input');
+                if (firstInput) firstInput.focus();
+              }, 500);
+            }
+          } catch (error) {
+            console.error('Error with Add Guest action:', error);
+          }
+        },
       },
-    },
-    {
-      label: 'Export CSV',
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-          />
-        </svg>
-      ),
-      onClick: () => {
-        if (isOnline && guests.length > 0) {
-          window.open(`${API_BASE_URL}/guests/export`, '_blank');
-          haptic.mediumFeedback();
-          toast.success('Exporting to CSV');
-        } else {
-          setError('Export is only available when online with guests');
-          haptic.errorFeedback();
-          toast.error('Export is only available when online');
-        }
+      {
+        label: 'Export CSV',
+        icon: (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+        ),
+        onClick: () => {
+          if (isOnline && guests.length > 0) {
+            window.open(`${API_BASE_URL}/guests/export`, '_blank');
+            haptic.mediumFeedback();
+            toast.success('Exporting to CSV');
+          } else {
+            setError('Export is only available when online with guests');
+            haptic.errorFeedback();
+            toast.error('Export is only available when online');
+          }
+        },
       },
-    },
-    {
-      label: 'Go to Top',
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 10l7-7m0 0l7 7m-7-7v18"
-          />
-        </svg>
-      ),
-      onClick: () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        haptic.lightFeedback();
+      {
+        label: 'Go to Top',
+        icon: (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 10l7-7m0 0l7 7m-7-7v18"
+            />
+          </svg>
+        ),
+        onClick: () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          haptic.lightFeedback();
+        },
       },
-    },
-  ];
+    ],
+    [isOnline, guests, API_BASE_URL, haptic, toast]
+  );
 
   // Conditional rendering
   if (!token && showRegister) {
@@ -401,25 +399,7 @@ function App() {
       className={`App ${darkMode ? 'dark' : ''} min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6`}
     >
       <ErrorBoundary>
-        <PullToRefresh
-          onRefresh={() => {
-            try {
-              haptic?.mediumFeedback(); 
-              return fetchGuests().then(() => {
-                toast?.success('Data refreshed');
-                return Promise.resolve();
-              }).catch(error => {
-                console.error('Refresh error:', error);
-                toast?.error('Failed to refresh data');
-                return Promise.reject(error);
-              });
-            } catch (error) {
-              console.error('Error in PullToRefresh:', error);
-              return Promise.reject(error);
-            }
-          }}
-          disabled={!isMobile}
-        >
+        <PullToRefresh onRefresh={fetchGuests} disabled={!isMobile}>
           <div className={`max-w-6xl mx-auto ${isMobile ? 'pb-24' : 'pb-6'}`}>
             <Navbar
               darkMode={darkMode}
@@ -510,117 +490,115 @@ function App() {
                       strokeLinejoin="round"
                       strokeWidth={2}
                       d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                    />
+                  </svg>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center justify-between card-hover">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Pending
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.pending}
+                  </p>
+                </div>
+                <div className="rounded-full bg-yellow-100 p-3 dark:bg-yellow-900">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6 text-yellow-500 dark:text-yellow-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center justify-between card-hover">
-              <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Pending
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {stats.pending}
-                </p>
-              </div>
-              <div className="rounded-full bg-yellow-100 p-3 dark:bg-yellow-900">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-yellow-500 dark:text-yellow-300"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-          {loading ? (
-            <div
-              className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center"
-              role="status"
-            >
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+            {loading ? (
+              <div
+                className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center"
+                role="status"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Loading...
-            </div>
-          ) : (
-            <>
-              <GuestForm
-                token={token}
-                onGuestAdded={fetchGuests}
-                apiBaseUrl={API_BASE_URL}
-                isOnline={isOnline}
-              />
-              <GuestList
-                token={token}
-                guests={guests}
-                onUpdate={fetchGuests}
-                apiBaseUrl={API_BASE_URL}
-                isOnline={isOnline}
-              />
-            </>
-          )}
-          {isOnline && (
-            <div className="mt-8 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
                 <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5"
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-1"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="currentColor"
                   aria-hidden="true"
                 >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
                   <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Add to home screen for offline access
-              </p>
-            </div>
-          )}
-        </div>
-        
-        {/* Mobile-only components */}
+                Loading...
+              </div>
+            ) : (
+              <>
+                <GuestForm
+                  token={token}
+                  onGuestAdded={fetchGuests}
+                  apiBaseUrl={API_BASE_URL}
+                  isOnline={isOnline}
+                />
+                <GuestList
+                  token={token}
+                  guests={guests}
+                  onUpdate={fetchGuests}
+                  apiBaseUrl={API_BASE_URL}
+                  isOnline={isOnline}
+                />
+              </>
+            )}
+            {isOnline && (
+              <div className="mt-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Add to home screen for offline access
+                </p>
+              </div>
+            )}
+          </div>
+        </PullToRefresh>
         {isMobile && (
           <>
-            <BottomNavbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             <FloatingActionButton actions={quickActions} />
+            <BottomNavbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
           </>
         )}
         <ServiceWorkerUpdater />
         <InstallPrompt />
-      </PullToRefresh>
       </ErrorBoundary>
     </div>
   );

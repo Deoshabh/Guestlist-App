@@ -11,7 +11,10 @@ import VirtualList from './VirtualList';
 import { useToast } from './ToastManager';
 import useMediaQuery from '../utils/useMediaQuery';
 
-function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = true }) {
+function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline = true }) {
+  // Ensure guests is never undefined
+  const safeGuests = Array.isArray(guests) ? guests : [];
+
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'invited', 'notInvited'
@@ -33,27 +36,42 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
 
   // Filtered and sorted guests
   const filteredAndSortedGuests = useMemo(() => {
-    // Apply search filter
-    let result = guests.filter(g => 
-      g.name.toLowerCase().includes(search.toLowerCase()) ||
-      (g.contact && g.contact.toLowerCase().includes(search.toLowerCase()))
-    );
-    
-    // Apply invited/not invited filter
-    if (filter === 'invited') {
-      result = result.filter(g => g.invited);
-    } else if (filter === 'notInvited') {
-      result = result.filter(g => !g.invited);
-    }
-    
-    // Apply sorting
+    if (!Array.isArray(safeGuests)) return [];
+
+    // Filter logic
+    let result = safeGuests.filter(g => {
+      // Null check each guest object
+      if (!g) return false;
+
+      // Search filter
+      const nameMatch = g.name && search ?
+        g.name.toLowerCase().includes(search.toLowerCase()) :
+        !search;
+
+      const contactMatch = g.contact && search ?
+        g.contact.toLowerCase().includes(search.toLowerCase()) :
+        !search;
+
+      // Status filter
+      let statusMatch = true;
+      if (filter === 'invited') {
+        statusMatch = g.invited === true;
+      } else if (filter === 'notInvited') {
+        statusMatch = g.invited !== true;
+      }
+
+      return (nameMatch || contactMatch) && statusMatch;
+    });
+
+    // Sort logic
     result.sort((a, b) => {
+      // Handle null case
+      if (!a || !b) return 0;
+
       let valueA, valueB;
-      
-      // Handle different field types
       if (sortField === 'name' || sortField === 'contact') {
-        valueA = (a[sortField] || '').toLowerCase();
-        valueB = (b[sortField] || '').toLowerCase();
+        valueA = ((a[sortField] || '')).toLowerCase();
+        valueB = ((b[sortField] || '')).toLowerCase();
       } else if (sortField === 'invited') {
         valueA = a.invited ? 1 : 0;
         valueB = b.invited ? 1 : 0;
@@ -61,7 +79,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         valueA = a[sortField];
         valueB = b[sortField];
       }
-      
+
       // Determine sort direction
       if (sortOrder === 'asc') {
         return valueA > valueB ? 1 : -1;
@@ -69,11 +87,11 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         return valueA < valueB ? 1 : -1;
       }
     });
-    
-    return result;
-  }, [guests, search, filter, sortField, sortOrder]);
 
-  const isAllSelected = filteredAndSortedGuests.length > 0 && 
+    return result;
+  }, [safeGuests, search, filter, sortField, sortOrder]);
+
+  const isAllSelected = filteredAndSortedGuests.length > 0 &&
     filteredAndSortedGuests.every(g => selected.includes(g._id));
 
   const toggleAll = () => {
@@ -94,44 +112,44 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
 
   const updateBulkInvited = async (invited) => {
     if (selected.length === 0) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       if (isOnline) {
         // Online mode - send directly to server
         await axios.put(`${apiBaseUrl}/guests/bulk-update`, { ids: selected, invited }, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         haptic.successFeedback();
       } else {
         // Offline mode - update locally and queue for later
         const guestsToUpdate = guests.filter(g => selected.includes(g._id));
-        
+
         for (const guest of guestsToUpdate) {
           // Update guest in local DB
           const updatedGuest = { ...guest, invited, _pendingSync: true };
           await db.saveGuest(updatedGuest);
-          
+
           // Queue the update for later sync
           await db.queueAction('UPDATE_GUEST', {
             id: guest._id,
             data: { invited }
           });
         }
-        
+
         haptic.successFeedback();
       }
-      
+
       setSelected([]);
       onUpdate();
     } catch (err) {
       console.error(err);
       haptic.errorFeedback();
-      setError(isOnline 
-        ? 'Error updating guests' 
+      setError(isOnline
+        ? 'Error updating guests'
         : 'Failed to update guests offline. Please try again.');
     } finally {
       setLoading(false);
@@ -141,14 +159,14 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
   const toggleGuestInvited = async (id, currentStatus) => {
     setLoading(true);
     setError('');
-    
+
     try {
       if (isOnline) {
         // Online mode - send directly to server
         await axios.put(`${apiBaseUrl}/guests/${id}`, { invited: !currentStatus }, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         haptic.successFeedback();
       } else {
         // Offline mode - update locally and queue for later
@@ -156,26 +174,26 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         if (!guest) {
           throw new Error('Guest not found');
         }
-        
+
         // Update guest in local DB
         const updatedGuest = { ...guest, invited: !currentStatus, _pendingSync: true };
         await db.saveGuest(updatedGuest);
-        
+
         // Queue the update for later sync
         await db.queueAction('UPDATE_GUEST', {
           id,
           data: { invited: !currentStatus }
         });
-        
+
         haptic.successFeedback();
       }
-      
+
       onUpdate();
     } catch (err) {
       console.error(err);
       haptic.errorFeedback();
-      setError(isOnline 
-        ? 'Error updating guest' 
+      setError(isOnline
+        ? 'Error updating guest'
         : 'Failed to update guest offline. Please try again.');
     } finally {
       setLoading(false);
@@ -184,17 +202,17 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
 
   const deleteGuest = async (id) => {
     if (!window.confirm('Are you sure you want to delete this guest?')) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       if (isOnline) {
         // Online mode - send directly to server
         await axios.delete(`${apiBaseUrl}/guests/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         haptic.successFeedback();
       } else {
         // Offline mode - update locally and queue for later
@@ -202,23 +220,23 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         if (!guest) {
           throw new Error('Guest not found');
         }
-        
+
         // Update guest in local DB
         const updatedGuest = { ...guest, deleted: true, _pendingSync: true };
         await db.saveGuest(updatedGuest);
-        
+
         // Queue the delete action for later sync
         await db.queueAction('DELETE_GUEST', { id });
-        
+
         haptic.successFeedback();
       }
-      
+
       onUpdate();
     } catch (err) {
       console.error(err);
       haptic.errorFeedback();
-      setError(isOnline 
-        ? 'Error deleting guest' 
+      setError(isOnline
+        ? 'Error deleting guest'
         : 'Failed to delete guest offline. Please try again.');
     } finally {
       setLoading(false);
@@ -228,14 +246,14 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
   const undoDelete = async (id) => {
     setLoading(true);
     setError('');
-    
+
     try {
       if (isOnline) {
         // Online mode - send directly to server
         await axios.put(`${apiBaseUrl}/guests/${id}/undo`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         haptic.successFeedback();
       } else {
         // Offline mode - update locally and queue for later
@@ -243,26 +261,26 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         if (!guest) {
           throw new Error('Guest not found');
         }
-        
+
         // Update guest in local DB
         const updatedGuest = { ...guest, deleted: false, _pendingSync: true };
         await db.saveGuest(updatedGuest);
-        
+
         // Queue the restore action for later sync
         await db.queueAction('UPDATE_GUEST', {
           id,
           data: { deleted: false }
         });
-        
+
         haptic.successFeedback();
       }
-      
+
       onUpdate();
     } catch (err) {
       console.error(err);
       haptic.errorFeedback();
-      setError(isOnline 
-        ? 'Error restoring guest' 
+      setError(isOnline
+        ? 'Error restoring guest'
         : 'Failed to restore guest offline. Please try again.');
     } finally {
       setLoading(false);
@@ -275,7 +293,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
       haptic.errorFeedback();
       return;
     }
-    
+
     window.open(`${apiBaseUrl}/guests/export`, '_blank');
     haptic.mediumFeedback();
   };
@@ -287,19 +305,19 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
       e.target.value = null; // Reset file input
       return;
     }
-    
+
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const formData = new FormData();
     formData.append('file', file);
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       await axios.post(`${apiBaseUrl}/guests/import`, formData, {
-        headers: { 
+        headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`
         }
@@ -337,7 +355,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
       {/* Mobile-optimized container with bottom padding for navbar */}
       <div className="p-4 md:p-6 pb-20 md:pb-6">
         <h2 className="text-xl font-semibold mb-4 dark:text-white">Guest List</h2>
-        
+
         {!isOnline && (
           <div className="p-3 mb-4 text-sm text-orange-700 bg-orange-100 rounded-lg dark:bg-orange-900 dark:text-orange-200 flex items-center animate-fadeIn">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,17 +364,17 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
             <span>Offline Mode - Some features are limited</span>
           </div>
         )}
-        
+
         {error && (
           <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-900 dark:text-red-200">
             {error}
           </div>
         )}
-        
+
         {/* Touch-optimized search and controls - Simplified for mobile */}
         <div className="flex flex-col md:flex-row gap-4 mb-4">
           <div className="relative flex-grow">
-            <input 
+            <input
               type="text"
               placeholder="Search by name or contact..."
               value={search}
@@ -369,7 +387,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               </svg>
             </div>
             {search && (
-              <button 
+              <button
                 onClick={() => setSearch('')}
                 className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 touch-manipulation"
               >
@@ -379,12 +397,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               </button>
             )}
           </div>
-          
+
           {/* Desktop controls */}
           {!isMobile && (
             <div className="flex flex-wrap gap-2">
-              <select 
-                value={sortField} 
+              <select
+                value={sortField}
                 onChange={(e) => setSortField(e.target.value)}
                 className="input py-3 text-base touch-manipulation" // Improved touch target
               >
@@ -392,25 +410,25 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
                 <option value="contact">Sort by Contact</option>
                 <option value="invited">Sort by Invited</option>
               </select>
-              
-              <select 
-                value={sortOrder} 
+
+              <select
+                value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
                 className="input"
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
               </select>
-              
+
               <div className="flex">
-                <button 
+                <button
                   onClick={() => {
                     setViewMode('card');
                     haptic.lightFeedback();
                   }}
                   className={`px-3 py-2 rounded-l-md border border-r-0 ${
-                    viewMode === 'card' 
-                      ? 'bg-primary text-white' 
+                    viewMode === 'card'
+                      ? 'bg-primary text-white'
                       : 'bg-white dark:bg-gray-700 dark:text-white'
                   }`}
                 >
@@ -418,14 +436,14 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setViewMode('table');
                     haptic.lightFeedback();
                   }}
                   className={`px-3 py-2 rounded-r-md border ${
-                    viewMode === 'table' 
-                      ? 'bg-primary text-white' 
+                    viewMode === 'table'
+                      ? 'bg-primary text-white'
                       : 'bg-white dark:bg-gray-700 dark:text-white'
                   }`}
                 >
@@ -436,10 +454,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               </div>
             </div>
           )}
-          
+
           {/* Mobile filter button */}
           {isMobile && (
-            <button 
+            <button
               onClick={openFilterSheet}
               className="btn btn-primary w-full py-3 flex items-center justify-center"
             >
@@ -450,17 +468,17 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
             </button>
           )}
         </div>
-        
+
         {/* Filter buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <button 
+          <button
             onClick={() => {
               setFilter('all');
               haptic.lightFeedback();
             }}
             className={`btn ${
-              filter === 'all' 
-                ? 'btn-primary' 
+              filter === 'all'
+                ? 'btn-primary'
                 : 'btn-outline'
             }`}
           >
@@ -471,14 +489,14 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               All Guests ({guests.length})
             </span>
           </button>
-          <button 
+          <button
             onClick={() => {
               setFilter('invited');
               haptic.lightFeedback();
             }}
             className={`btn ${
-              filter === 'invited' 
-                ? 'btn-primary' 
+              filter === 'invited'
+                ? 'btn-primary'
                 : 'btn-outline'
             }`}
           >
@@ -489,14 +507,14 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               Invited ({guests.filter(g => g.invited).length})
             </span>
           </button>
-          <button 
+          <button
             onClick={() => {
               setFilter('notInvited');
               haptic.lightFeedback();
             }}
             className={`btn ${
-              filter === 'notInvited' 
-                ? 'btn-primary' 
+              filter === 'notInvited'
+                ? 'btn-primary'
                 : 'btn-outline'
             }`}
           >
@@ -508,12 +526,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
             </span>
           </button>
         </div>
-        
+
         {/* Bulk actions */}
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="flex items-center">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={isAllSelected}
               onChange={toggleAll}
               disabled={filteredAndSortedGuests.length === 0}
@@ -523,9 +541,9 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               Select All
             </label>
           </div>
-          
-          <button 
-            onClick={() => updateBulkInvited(true)} 
+
+          <button
+            onClick={() => updateBulkInvited(true)}
             disabled={selected.length === 0 || loading}
             className="btn btn-outline text-sm"
           >
@@ -536,8 +554,8 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               Mark Selected as Invited
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => updateBulkInvited(false)}
             disabled={selected.length === 0 || loading}
             className="btn btn-outline text-sm"
@@ -549,9 +567,9 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               Mark Selected as Not Invited
             </span>
           </button>
-          
-          <button 
-            onClick={exportCSV} 
+
+          <button
+            onClick={exportCSV}
             disabled={loading || guests.length === 0 || !isOnline}
             className={`btn btn-outline text-sm ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
@@ -562,7 +580,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               Export CSV
             </span>
           </button>
-          
+
           <label className={`btn btn-outline text-sm flex items-center ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <span className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -570,16 +588,16 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
               </svg>
               Import CSV
             </span>
-            <input 
-              type="file" 
-              accept=".csv" 
+            <input
+              type="file"
+              accept=".csv"
               onChange={importCSV}
               disabled={loading || !isOnline}
               className="hidden"
             />
           </label>
         </div>
-        
+
         {loading && (
           <div className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center">
             <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -589,240 +607,219 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
             Processing...
           </div>
         )}
-        
+
         {/* Guest list */}
-        {guests.length === 0 ? (
+        {safeGuests.length === 0 ? (
           <div className="text-center py-8 dark:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <p className="mt-2">No guests found. Add your first guest using the form above.</p>
           </div>
-        ) : filteredAndSortedGuests.length === 0 ? (
-          <div className="text-center py-8 dark:text-white">
-            <p>No guests match your search criteria.</p>
-          </div>
         ) : (
-          <>
-            {/* Mobile optimized view with VirtualList and SwipeActions */}
-            {isMobile ? (
-              <div className="animate-fadeIn">
-                {filteredAndSortedGuests.map((guest) => (
-                  <GuestListItem 
+          !isMobile ? (
+            // Desktop view - keep existing code
+            viewMode === 'card' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {filteredAndSortedGuests.map(guest => (
+                  <div
                     key={guest._id}
-                    guest={guest}
-                    selected={selected.includes(guest._id)}
-                    onSelect={() => toggleSelect(guest._id)}
-                    onEdit={() => openEditModal(guest)}
-                    onToggleInvited={() => toggleGuestInvited(guest._id, guest.invited)}
-                    onDelete={() => deleteGuest(guest._id)}
-                    onRestore={() => undoDelete(guest._id)}
-                  />
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-all duration-200 card-hover ${
+                      guest.deleted ? 'opacity-50' : ''
+                    } ${
+                      selected.includes(guest._id) ? 'ring-2 ring-primary' : ''
+                    }`}
+                  >
+                    <div className="flex justify-between mb-2">
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(guest._id)}
+                          onChange={() => toggleSelect(guest._id)}
+                          className="w-5 h-5 mt-1 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">
+                            {guest.name}
+                            {guest._pendingSync && (
+                              <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'No contact info'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <span className={`px-2 py-1 text-xs rounded ${
+                          guest.invited
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        }`}>
+                          {guest.invited ? 'Invited' : 'Not Invited'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Improved touch-friendly buttons with better spacing */}
+                    <div className="flex flex-wrap justify-end gap-2 mt-3">
+                      <button
+                        onClick={() => openEditModal(guest)}
+                        className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 touch-manipulation flex items-center shadow-sm"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => toggleGuestInvited(guest._id, guest.invited)}
+                        className={`px-3 py-2.5 text-sm rounded flex items-center shadow-sm ${
+                          guest.invited
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                            : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {guest.invited ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          )}
+                        </svg>
+                        {guest.invited ? 'Mark Not Invited' : 'Mark Invited'}
+                      </button>
+
+                      <button
+                        onClick={() => deleteGuest(guest._id)}
+                        className="px-3 py-2.5 text-sm rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 flex items-center shadow-sm"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+
+                      {guest.deleted && (
+                        <button
+                          onClick={() => undoDelete(guest._id)}
+                          className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 flex items-center shadow-sm"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                          </svg>
+                          Restore
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
-              // Desktop view - keep existing code
-              viewMode === 'card' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {filteredAndSortedGuests.map(guest => (
-                    <div 
-                      key={guest._id} 
-                      className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-all duration-200 card-hover ${
-                        guest.deleted ? 'opacity-50' : ''
-                      } ${
-                        selected.includes(guest._id) ? 'ring-2 ring-primary' : ''
-                      }`}
-                    >
-                      <div className="flex justify-between mb-2">
-                        <div className="flex items-start space-x-3">
-                          <input 
+              // Table view 
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={toggleAll}
+                          disabled={filteredAndSortedGuests.length === 0}
+                          className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                        Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                        Contact
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+                    {filteredAndSortedGuests.map(guest => (
+                      <tr key={guest._id} className={selected.includes(guest._id) ? 'bg-blue-50 dark:bg-blue-900' : ''}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
                             type="checkbox"
                             checked={selected.includes(guest._id)}
                             onChange={() => toggleSelect(guest._id)}
-                            className="w-5 h-5 mt-1 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
                           />
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {guest.name}
-                              {guest._pendingSync && (
-                                <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
-                              )}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'No contact info'}</p>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
+                            {guest._pendingSync && (
+                              <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                            )}
                           </div>
-                        </div>
-                        <div className="flex items-start">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'N/A'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs rounded ${
-                            guest.invited 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                            guest.invited
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                               : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                           }`}>
                             {guest.invited ? 'Invited' : 'Not Invited'}
                           </span>
-                        </div>
-                      </div>
-                      {/* Improved touch-friendly buttons with better spacing */}
-                      <div className="flex flex-wrap justify-end gap-2 mt-3">
-                        <button
-                          onClick={() => openEditModal(guest)}
-                          className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 touch-manipulation flex items-center shadow-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                          Edit
-                        </button>
-                        
-                        <button
-                          onClick={() => toggleGuestInvited(guest._id, guest.invited)}
-                          className={`px-3 py-2.5 text-sm rounded flex items-center shadow-sm ${
-                            guest.invited 
-                              ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200' 
-                              : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
-                          }`}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            {guest.invited ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            )}
-                          </svg>
-                          {guest.invited ? 'Mark Not Invited' : 'Mark Invited'}
-                        </button>
-                        
-                        <button
-                          onClick={() => deleteGuest(guest._id)}
-                          className="px-3 py-2.5 text-sm rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 flex items-center shadow-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </button>
-                        
-                        {guest.deleted && (
-                          <button
-                            onClick={() => undoDelete(guest._id)}
-                            className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 flex items-center shadow-sm"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                            </svg>
-                            Restore
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                // Table view 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                          <input 
-                            type="checkbox" 
-                            checked={isAllSelected}
-                            onChange={toggleAll}
-                            disabled={filteredAndSortedGuests.length === 0}
-                            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
-                          />
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                          Name
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                          Contact
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                          Status
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                      {filteredAndSortedGuests.map(guest => (
-                        <tr key={guest._id} className={selected.includes(guest._id) ? 'bg-blue-50 dark:bg-blue-900' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <input 
-                              type="checkbox"
-                              checked={selected.includes(guest._id)}
-                              onChange={() => toggleSelect(guest._id)}
-                              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
-                              {guest._pendingSync && (
-                                <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'N/A'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              guest.invited 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            }`}>
-                              {guest.invited ? 'Invited' : 'Not Invited'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => openEditModal(guest)}
+                              className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => toggleGuestInvited(guest._id, guest.invited)}
+                              className={`px-3 py-1 text-xs rounded ${
+                                guest.invited
+                                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                                  : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
+                              }`}
+                            >
+                              {guest.invited ? 'Uninvite' : 'Invite'}
+                            </button>
+                            <button
+                              onClick={() => deleteGuest(guest._id)}
+                              className="px-3 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200"
+                            >
+                              Delete
+                            </button>
+                            {guest.deleted && (
                               <button
-                                onClick={() => openEditModal(guest)}
+                                onClick={() => undoDelete(guest._id)}
                                 className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
                               >
-                                Edit
+                                Restore
                               </button>
-                              <button
-                                onClick={() => toggleGuestInvited(guest._id, guest.invited)}
-                                className={`px-3 py-1 text-xs rounded ${
-                                  guest.invited 
-                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200' 
-                                    : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
-                                }`}
-                              >
-                                {guest.invited ? 'Uninvite' : 'Invite'}
-                              </button>
-                              <button
-                                onClick={() => deleteGuest(guest._id)}
-                                className="px-3 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200"
-                              >
-                                Delete
-                              </button>
-                              {guest.deleted && (
-                                <button
-                                  onClick={() => undoDelete(guest._id)}
-                                  className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-                                >
-                                  Restore
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            )}
-          </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )
         )}
+
       </div>
 
       {/* Edit Modal */}
-      <EditGuestModal 
+      <EditGuestModal
         guest={currentGuest}
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
@@ -830,7 +827,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         token={token}
         apiBaseUrl={apiBaseUrl}
       />
-      
+
       {/* Filter Bottom Sheet for Mobile */}
       <BottomSheet
         isOpen={filterSheetOpen}
@@ -838,7 +835,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = tr
         title="Filter & Sort"
         height="80vh"
       >
-        <GuestFilterSheet 
+        <GuestFilterSheet
           filter={filter}
           setFilter={setFilter}
           sortField={sortField}
