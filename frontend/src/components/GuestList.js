@@ -616,204 +616,216 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
             </svg>
             <p className="mt-2">No guests found. Add your first guest using the form above.</p>
           </div>
-        ) : (
-          !isMobile ? (
-            // Desktop view - keep existing code
-            viewMode === 'card' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {filteredAndSortedGuests.map(guest => (
-                  <div
-                    key={guest._id}
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-all duration-200 card-hover ${
-                      guest.deleted ? 'opacity-50' : ''
-                    } ${
-                      selected.includes(guest._id) ? 'ring-2 ring-primary' : ''
-                    }`}
-                  >
-                    <div className="flex justify-between mb-2">
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(guest._id)}
-                          onChange={() => toggleSelect(guest._id)}
-                          className="w-5 h-5 mt-1 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
-                        />
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {guest.name}
-                            {guest._pendingSync && (
-                              <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
-                            )}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'No contact info'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start">
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          guest.invited
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }`}>
-                          {guest.invited ? 'Invited' : 'Not Invited'}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Improved touch-friendly buttons with better spacing */}
-                    <div className="flex flex-wrap justify-end gap-2 mt-3">
-                      <button
-                        onClick={() => openEditModal(guest)}
-                        className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 touch-manipulation flex items-center shadow-sm"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => toggleGuestInvited(guest._id, guest.invited)}
-                        className={`px-3 py-2.5 text-sm rounded flex items-center shadow-sm ${
-                          guest.invited
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
-                        }`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          {guest.invited ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          )}
-                        </svg>
-                        {guest.invited ? 'Mark Not Invited' : 'Mark Invited'}
-                      </button>
-
-                      <button
-                        onClick={() => deleteGuest(guest._id)}
-                        className="px-3 py-2.5 text-sm rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 flex items-center shadow-sm"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
-                      </button>
-
-                      {guest.deleted && (
-                        <button
-                          onClick={() => undoDelete(guest._id)}
-                          className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 flex items-center shadow-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                          </svg>
-                          Restore
-                        </button>
-                      )}
+        ) : isMobile ? (
+          // Mobile view code would go here
+          <div className="space-y-4">
+            {filteredAndSortedGuests.map(guest => (
+              <GuestListItem 
+                key={guest._id}
+                guest={guest}
+                isSelected={selected.includes(guest._id)}
+                onToggleSelect={() => toggleSelect(guest._id)}
+                onEdit={() => openEditModal(guest)}
+                onToggleInvited={() => toggleGuestInvited(guest._id, guest.invited)}
+                onDelete={() => deleteGuest(guest._id)}
+                onRestore={() => undoDelete(guest._id)}
+              />
+            ))}
+          </div>
+        ) : viewMode === 'card' ? (
+          // Desktop card view
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredAndSortedGuests.map(guest => (
+              <div
+                key={guest._id}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-all duration-200 card-hover ${
+                  guest.deleted ? 'opacity-50' : ''
+                } ${
+                  selected.includes(guest._id) ? 'ring-2 ring-primary' : ''
+                }`}
+              >
+                <div className="flex justify-between mb-2">
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(guest._id)}
+                      onChange={() => toggleSelect(guest._id)}
+                      className="w-5 h-5 mt-1 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <div>
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        {guest.name}
+                        {guest._pendingSync && (
+                          <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                        )}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'No contact info'}</p>
                     </div>
                   </div>
-                ))}
+                  <div className="flex items-start">
+                    <span className={`px-2 py-1 text-xs rounded ${
+                      guest.invited
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    }`}>
+                      {guest.invited ? 'Invited' : 'Not Invited'}
+                    </span>
+                  </div>
+                </div>
+                {/* Improved touch-friendly buttons with better spacing */}
+                <div className="flex flex-wrap justify-end gap-2 mt-3">
+                  <button
+                    onClick={() => openEditModal(guest)}
+                    className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 touch-manipulation flex items-center shadow-sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={() => toggleGuestInvited(guest._id, guest.invited)}
+                    className={`px-3 py-2.5 text-sm rounded flex items-center shadow-sm ${
+                      guest.invited
+                        ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                        : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      {guest.invited ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      )}
+                    </svg>
+                    {guest.invited ? 'Mark Not Invited' : 'Mark Invited'}
+                  </button>
+
+                  <button
+                    onClick={() => deleteGuest(guest._id)}
+                    className="px-3 py-2.5 text-sm rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 flex items-center shadow-sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
+
+                  {guest.deleted && (
+                    <button
+                      onClick={() => undoDelete(guest._id)}
+                      className="px-3 py-2.5 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 flex items-center shadow-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                      </svg>
+                      Restore
+                    </button>
+                  )}
+                </div>
               </div>
-            ) : (
-              // Table view 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          onChange={toggleAll}
-                          disabled={filteredAndSortedGuests.length === 0}
-                          className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
-                        />
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                        Name
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                        Contact
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                    {filteredAndSortedGuests.map(guest => (
-                      <tr key={guest._id} className={selected.includes(guest._id) ? 'bg-blue-50 dark:bg-blue-900' : ''}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(guest._id)}
-                            onChange={() => toggleSelect(guest._id)}
-                            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
-                            {guest._pendingSync && (
-                              <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs rounded ${
+            ))}
+          </div>
+        ) : (
+          // Desktop table view 
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={toggleAll}
+                      disabled={filteredAndSortedGuests.length === 0}
+                      className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    Contact
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+                {filteredAndSortedGuests.map(guest => (
+                  <tr key={guest._id} className={selected.includes(guest._id) ? 'bg-blue-50 dark:bg-blue-900' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(guest._id)}
+                        onChange={() => toggleSelect(guest._id)}
+                        className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
+                        {guest._pendingSync && (
+                          <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        guest.invited
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      }`}>
+                        {guest.invited ? 'Invited' : 'Not Invited'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => openEditModal(guest)}
+                          className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleGuestInvited(guest._id, guest.invited)}
+                          className={`px-3 py-1 text-xs rounded ${
                             guest.invited
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                          }`}>
-                            {guest.invited ? 'Invited' : 'Not Invited'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => openEditModal(guest)}
-                              className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => toggleGuestInvited(guest._id, guest.invited)}
-                              className={`px-3 py-1 text-xs rounded ${
-                                guest.invited
-                                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
-                                  : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
-                              }`}
-                            >
-                              {guest.invited ? 'Uninvite' : 'Invite'}
-                            </button>
-                            <button
-                              onClick={() => deleteGuest(guest._id)}
-                              className="px-3 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200"
-                            >
-                              Delete
-                            </button>
-                            {guest.deleted && (
-                              <button
-                                onClick={() => undoDelete(guest._id)}
-                                className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-                              >
-                                Restore
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          )
+                              ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200'
+                          }`}
+                        >
+                          {guest.invited ? 'Uninvite' : 'Invite'}
+                        </button>
+                        <button
+                          onClick={() => deleteGuest(guest._id)}
+                          className="px-3 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200"
+                        >
+                          Delete
+                        </button>
+                        {guest.deleted && (
+                          <button
+                            onClick={() => undoDelete(guest._id)}
+                            className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
       </div>
