@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from './ToastManager';
 import haptic from '../utils/haptic';
 import db from '../utils/db';
@@ -45,10 +45,24 @@ const WhatsAppMessageComposer = ({
     { id: 'time', label: 'Current Time', value: '{{time}}' }
   ];
 
+  // Load message templates from IndexedDB
+  const loadMessageTemplates = useCallback(async () => {
+    try {
+      setIsLoadingTemplates(true);
+      const templates = await db.getAllMessageTemplates();
+      setMessageTemplates(templates || []);
+    } catch (error) {
+      console.error('Error loading message templates:', error);
+      toast.error('Failed to load message templates');
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  }, [toast]);
+
   // Load saved message templates on component mount
   useEffect(() => {
     loadMessageTemplates();
-  }, []);
+  }, [loadMessageTemplates]);
 
   // Reset selections when guests change
   useEffect(() => {
@@ -63,20 +77,6 @@ const WhatsAppMessageComposer = ({
       setPreviewIndex(0);
     }
   }, [selectedGuests, previewIndex]);
-
-  // Load message templates from IndexedDB
-  const loadMessageTemplates = async () => {
-    try {
-      setIsLoadingTemplates(true);
-      const templates = await db.getAllMessageTemplates();
-      setMessageTemplates(templates || []);
-    } catch (error) {
-      console.error('Error loading message templates:', error);
-      toast.error('Failed to load message templates');
-    } finally {
-      setIsLoadingTemplates(false);
-    }
-  };
 
   // Save a new message template
   const saveMessageTemplate = async () => {
@@ -377,7 +377,11 @@ const WhatsAppMessageComposer = ({
       </h2>
       
       {/* Message Template Selection */}
-      {messageTemplates.length > 0 && (
+      {isLoadingTemplates ? (
+        <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          Loading templates...
+        </div>
+      ) : messageTemplates.length > 0 && (
         <div className="mb-4">
           <div className="flex justify-between items-center mb-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -545,7 +549,7 @@ const WhatsAppMessageComposer = ({
         />
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           Add placeholders that will be replaced with guest data when sending. 
-          Example: "Hello {{name}}, we'd like to invite you to our event."
+          Example: &quot;Hello {{name}}, we&apos;d like to invite you to our event.&quot;
         </p>
       </div>
 

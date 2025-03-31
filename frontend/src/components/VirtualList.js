@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const VirtualList = ({ 
   items = [], 
@@ -13,12 +13,7 @@ const VirtualList = ({
   const [visibleItems, setVisibleItems] = useState([]);
   const containerRef = useRef(null);
   
-  useEffect(() => {
-    // Update visible items when items change
-    updateVisibleItems();
-  }, [items]);
-  
-  const updateVisibleItems = () => {
+  const updateVisibleItems = useCallback(() => {
     if (!containerRef.current) return;
     
     const { scrollTop, clientHeight } = containerRef.current;
@@ -55,7 +50,7 @@ const VirtualList = ({
         currentRef.removeEventListener('scroll', handleScroll);
       };
     }
-  }, [items, itemHeight]);
+  }, [items, itemHeight, updateVisibleItems, handleScroll]);
   
   // Total height of all items
   const totalHeight = items.length * itemHeight;
