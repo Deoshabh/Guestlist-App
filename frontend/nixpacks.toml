@@ -1,3 +1,11 @@
+# Git deployment configuration for PowerShell
+# If you encounter detached HEAD state or worktree issues:
+# git worktree list  # Check current worktrees
+# git checkout main  # Try to switch to main branch
+# git add .          # Add all changes
+# git commit -m "Your commit message"
+# git push origin main
+
 [environment]
 type = "node"
 
