@@ -6,7 +6,8 @@ const DB_VERSION = 2;
 const STORES = {
   GUESTS: 'guests',
   PENDING_ACTIONS: 'pendingActions',
-  GUEST_GROUPS: 'guestGroups'
+  GUEST_GROUPS: 'guestGroups',
+  MESSAGE_TEMPLATES: 'messageTemplates'
 };
 
 // Initialize the database
@@ -42,6 +43,11 @@ const initDB = () => {
       if (!db.objectStoreNames.contains(STORES.GUEST_GROUPS)) {
         const groupStore = db.createObjectStore(STORES.GUEST_GROUPS, { keyPath: '_id' });
         groupStore.createIndex('by_name', 'name', { unique: false });
+      }
+
+      // Add message templates store
+      if (!db.objectStoreNames.contains(STORES.MESSAGE_TEMPLATES)) {
+        db.createObjectStore(STORES.MESSAGE_TEMPLATES, { keyPath: '_id' });
       }
     };
   });
@@ -273,6 +279,97 @@ const deleteGroup = async (groupId) => {
   }
 };
 
+// Add these functions to support WhatsApp message templates
+
+/**
+ * Save a message template to IndexedDB
+ * 
+ * @param {Object} template - The message template to save
+ * @returns {Promise<Object>} The saved template with an ID
+ */
+const saveMessageTemplate = async (template) => {
+  const db = await initDB();
+  try {
+    const tx = db.transaction(STORES.MESSAGE_TEMPLATES, 'readwrite');
+    const store = tx.objectStore(STORES.MESSAGE_TEMPLATES);
+    
+    // Generate an ID if one doesn't exist
+    if (!template._id) {
+      template._id = `template_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
+    
+    await store.put(template);
+    await tx.done;
+    
+    return template;
+  } catch (error) {
+    console.error('Error saving message template:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all message templates from IndexedDB
+ * 
+ * @returns {Promise<Array>} Array of message templates
+ */
+const getAllMessageTemplates = async () => {
+  const db = await initDB();
+  try {
+    const tx = db.transaction(STORES.MESSAGE_TEMPLATES, 'readonly');
+    const store = tx.objectStore(STORES.MESSAGE_TEMPLATES);
+    
+    const templates = await store.getAll();
+    
+    // Sort by creation date (newest first)
+    return templates.sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  } catch (error) {
+    console.error('Error getting message templates:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get a message template by ID
+ * 
+ * @param {string} id - The template ID
+ * @returns {Promise<Object>} The message template
+ */
+const getMessageTemplateById = async (id) => {
+  const db = await initDB();
+  try {
+    const tx = db.transaction(STORES.MESSAGE_TEMPLATES, 'readonly');
+    const store = tx.objectStore(STORES.MESSAGE_TEMPLATES);
+    
+    return await store.get(id);
+  } catch (error) {
+    console.error('Error getting message template:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a message template
+ * 
+ * @param {string} id - The template ID to delete
+ * @returns {Promise<void>}
+ */
+const deleteMessageTemplate = async (id) => {
+  const db = await initDB();
+  try {
+    const tx = db.transaction(STORES.MESSAGE_TEMPLATES, 'readwrite');
+    const store = tx.objectStore(STORES.MESSAGE_TEMPLATES);
+    
+    await store.delete(id);
+    await tx.done;
+  } catch (error) {
+    console.error('Error deleting message template:', error);
+    throw error;
+  }
+};
+
 // Define a named const before exporting to avoid anonymous default export warning
 const dbOperations = {
   getAllGuests,
@@ -284,7 +381,11 @@ const dbOperations = {
   getGroups,
   saveGroup,
   saveGroups,
-  deleteGroup
+  deleteGroup,
+  saveMessageTemplate,
+  getAllMessageTemplates,
+  getMessageTemplateById,
+  deleteMessageTemplate
 };
 
 export default dbOperations;

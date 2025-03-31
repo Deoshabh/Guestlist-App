@@ -1,80 +1,97 @@
-// Haptic feedback utility for touch devices
-
 /**
- * Checks if the device supports vibration
- * @returns {boolean} Whether vibration is supported
+ * Haptic feedback utility for tactile feedback on user interactions
  */
-const isVibrationSupported = () => {
-  return 'vibrate' in navigator;
+
+// Check if the vibration API is available
+const hasVibration = 'vibrate' in navigator;
+
+// Vibration patterns in milliseconds
+const patterns = {
+  light: [10],
+  medium: [20],
+  heavy: [30],
+  success: [10, 30, 10],
+  error: [50, 20, 50],
+  warning: [20, 10, 20, 10],
+  doubleLight: [10, 30, 10],
+  triple: [10, 30, 10, 30, 10],
 };
 
 /**
- * Provides a light haptic feedback (short vibration)
- */
-const lightFeedback = () => {
-  if (isVibrationSupported()) {
-    navigator.vibrate(10); // 10ms vibration
-  }
-};
-
-/**
- * Provides a medium haptic feedback for confirmations
- */
-const mediumFeedback = () => {
-  if (isVibrationSupported()) {
-    navigator.vibrate(35); // 35ms vibration
-  }
-};
-
-/**
- * Provides a strong haptic feedback for important actions
- */
-const strongFeedback = () => {
-  if (isVibrationSupported()) {
-    navigator.vibrate(50); // 50ms vibration
-  }
-};
-
-/**
- * Provides an error feedback pattern
- */
-const errorFeedback = () => {
-  if (isVibrationSupported()) {
-    navigator.vibrate([30, 100, 30]); // error pattern
-  }
-};
-
-/**
- * Provides a success feedback pattern
- */
-const successFeedback = () => {
-  if (isVibrationSupported()) {
-    navigator.vibrate([15, 50, 30]); // success pattern
-  }
-};
-
-/**
- * Vibrate if supported, with optional pattern
- * @param {number|number[]} pattern - Vibration pattern in milliseconds
- * @returns {boolean} Whether vibration was executed
+ * Apply haptic feedback
+ * @param {Array|number} pattern - Vibration pattern in milliseconds
  */
 const vibrate = (pattern) => {
-  if (isVibrationSupported()) {
+  if (hasVibration) {
     navigator.vibrate(pattern);
-    return true;
   }
-  return false;
 };
 
-// Define a named const before exporting to avoid anonymous default export warning
-const hapticFeedback = {
-  isVibrationSupported,
+/**
+ * Light haptic feedback (small tap)
+ */
+const lightFeedback = () => {
+  vibrate(patterns.light);
+};
+
+/**
+ * Medium haptic feedback
+ */
+const mediumFeedback = () => {
+  vibrate(patterns.medium);
+};
+
+/**
+ * Heavy haptic feedback
+ */
+const heavyFeedback = () => {
+  vibrate(patterns.heavy);
+};
+
+/**
+ * Success haptic feedback pattern
+ */
+const successFeedback = () => {
+  vibrate(patterns.success);
+};
+
+/**
+ * Error haptic feedback pattern
+ */
+const errorFeedback = () => {
+  vibrate(patterns.error);
+};
+
+/**
+ * Warning haptic feedback pattern
+ */
+const warningFeedback = () => {
+  vibrate(patterns.warning);
+};
+
+/**
+ * Double tap feedback pattern
+ */
+const doubleFeedback = () => {
+  vibrate(patterns.doubleLight);
+};
+
+/**
+ * Triple tap feedback pattern
+ */
+const tripleFeedback = () => {
+  vibrate(patterns.triple);
+};
+
+// Export haptic feedback functions
+export default {
   lightFeedback,
   mediumFeedback,
-  strongFeedback,
-  errorFeedback,
+  heavyFeedback,
   successFeedback,
+  errorFeedback,
+  warningFeedback,
+  doubleFeedback,
+  tripleFeedback,
   vibrate
 };
-
-export default hapticFeedback;
