@@ -32,7 +32,7 @@ const Navbar = ({
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Guest List Manager</h1>
           </div>
           
-          {/* Desktop menu - hidden on mobile since we have bottom nav */}
+          {/* Desktop menu */}
           <div className="hidden md:flex items-center space-x-3">
             {/* View mode toggle */}
             <ViewModeToggle className="mr-2" />
@@ -72,14 +72,14 @@ const Navbar = ({
             )}
           </div>
           
-          {/* Mobile toggle button for additional options (not main navigation) */}
+          {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             {/* Add ViewModeToggle to mobile header */}
             <ViewModeToggle className="mr-2" />
             
             <button
               onClick={toggleMenu}
-              className="outline-none mobile-menu-button touch-manipulation"
+              className="outline-none mobile-menu-button"
               aria-label="Toggle menu"
             >
               <svg
@@ -102,24 +102,34 @@ const Navbar = ({
         </div>
       </div>
       
-      {/* Mobile menu - simplified to avoid duplication with bottom nav */}
-      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2 animate-slideDown`}>
+      {/* Mobile menu */}
+      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2`}>
         <button 
+<<<<<<< HEAD
           onClick={() => {
             toggleDarkMode();
             toggleMenu();
           }}
           className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
+=======
+          onClick={toggleDarkMode}
+          className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
+>>>>>>> parent of 64b458f (New UI)
         >
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
         {isAuthenticated && (
           <button 
+<<<<<<< HEAD
             onClick={() => {
               logout();
               toggleMenu();
             }}
             className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors touch-manipulation"
+=======
+            onClick={logout}
+            className="block w-full px-4 py-2 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors"
+>>>>>>> parent of 64b458f (New UI)
           >
             Logout
           </button>
