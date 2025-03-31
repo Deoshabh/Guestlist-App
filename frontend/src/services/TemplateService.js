@@ -1,61 +1,58 @@
-import apiService from './ApiService';
+import axios from 'axios';
 
-class TemplateService {
-  constructor() {
-    this.apiService = apiService;
-  }
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-  /**
-   * Get all message templates
-   * @returns {Promise<Array>} - Array of template objects
-   */
-  async getTemplates() {
-    const response = await this.apiService.axiosInstance.get('/templates');
+// Get all templates
+export const getTemplates = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/templates`);
     return response.data;
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    throw error;
   }
+};
 
-  /**
-   * Get a specific template by ID
-   * @param {string} id - Template ID
-   * @returns {Promise<Object>} - Template object
-   */
-  async getTemplate(id) {
-    const response = await this.apiService.axiosInstance.get(`/templates/${id}`);
+// Get a template by ID
+export const getTemplateById = async (id) => {
+  try {
+    const response = await axios.get(`${API_URL}/templates/${id}`);
     return response.data;
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    throw error;
   }
+};
 
-  /**
-   * Create a new template
-   * @param {Object} templateData - Template data
-   * @returns {Promise<Object>} - Created template
-   */
-  async createTemplate(templateData) {
-    const response = await this.apiService.axiosInstance.post('/templates', templateData);
+// Create a new template
+export const createTemplate = async (templateData) => {
+  try {
+    const response = await axios.post(`${API_URL}/templates`, templateData);
     return response.data;
+  } catch (error) {
+    console.error('Error creating template:', error);
+    throw error;
   }
+};
 
-  /**
-   * Update an existing template
-   * @param {string} id - Template ID
-   * @param {Object} templateData - Template data
-   * @returns {Promise<Object>} - Updated template
-   */
-  async updateTemplate(id, templateData) {
-    const response = await this.apiService.axiosInstance.put(`/templates/${id}`, templateData);
+// Update a template
+export const updateTemplate = async (id, templateData) => {
+  try {
+    const response = await axios.put(`${API_URL}/templates/${id}`, templateData);
     return response.data;
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw error;
   }
+};
 
-  /**
-   * Delete a template
-   * @param {string} id - Template ID
-   * @returns {Promise<Object>} - Response data
-   */
-  async deleteTemplate(id) {
-    const response = await this.apiService.axiosInstance.delete(`/templates/${id}`);
+// Delete a template
+export const deleteTemplate = async (id) => {
+  try {
+    const response = await axios.delete(`${API_URL}/templates/${id}`);
     return response.data;
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    throw error;
   }
-}
-
-// Create and export a singleton instance
-const templateService = new TemplateService();
-export default templateService;
+};
