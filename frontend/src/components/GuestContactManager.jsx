@@ -211,7 +211,7 @@ const GuestContactManager = ({ onContactsImported }) => {
       
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-gray-600 dark:text-gray-400">
         <div>
-          <p><strong>Device Contacts:</strong> Import directly from your phone's contacts (requires browser support).</p>
+          <p><strong>Device Contacts:</strong> Import directly from your phone&apos;s contacts (requires browser support).</p>
         </div>
         <div>
           <p><strong>Google Contacts:</strong> Import contacts from your Google account (requires internet connection).</p>
