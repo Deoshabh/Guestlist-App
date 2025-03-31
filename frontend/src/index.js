@@ -10,11 +10,14 @@ import { UIProvider } from './contexts/UIContext';
 import { GuestProvider } from './contexts/GuestContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { checkIcons } from './utils/iconGenerator';
 
-// Create root and render app - simplified to avoid analytics errors
+// Check for missing icons
+checkIcons().catch(err => console.warn('Icon check failed:', err));
+
+// Create root and render app
 const root = createRoot(document.getElementById('root'));
 root.render(
-  // Removed StrictMode as it causes double initialization which can worsen errors
   <ToastProvider>
     <BrowserRouter>
       <NetworkProvider>
@@ -33,16 +36,12 @@ root.render(
 // Register service worker with minimal error handling
 try {
   serviceWorkerRegistration.register({
-    onSuccess: (registration) => {
-      console.log('ServiceWorker registered');
-    },
-    onUpdate: () => {
-      console.log('ServiceWorker updated');
-    }
+    onSuccess: () => console.log('ServiceWorker registered'),
+    onUpdate: () => console.log('ServiceWorker updated')
   });
 } catch (error) {
   console.warn('ServiceWorker registration failed:', error);
 }
 
-// Simple reportWebVitals that doesn't depend on analytics
+// Simple reportWebVitals
 reportWebVitals(console.log);

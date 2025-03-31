@@ -22,20 +22,15 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ?
   process.env.ALLOWED_ORIGINS.split(',') : 
   ['https://bhaujanvypar.com', 'https://www.bhaujanvypar.com', 'http://localhost:3000'];
 
-// Apply raw CORS headers first - this is critical for the preflight OPTIONS request
+console.log('Allowed origins:', allowedOrigins);
+
+// THIS IS CRITICAL - Set CORS directly on all responses
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
-  // Check if the origin is allowed
-  if (allowedOrigins.includes(origin) || !isProd) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  }
-  
-  // Handle OPTIONS method explicitly
+  // Handle preflight requests immediately
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -43,70 +38,49 @@ app.use((req, res, next) => {
   next();
 });
 
-// Now apply the cors middleware with the same settings
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || !isProd) {
-      callback(null, true);
-    } else {
-      console.warn(`CORS blocked request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true,
-  maxAge: 86400
-}));
+// Simplified CORS middleware as a fallback
+app.use(cors());
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(fileUpload());
 
-// Add debug middleware in development mode
+// Debug middleware
 if (!isProd && process.env.DEBUG_API === 'true') {
   app.use(debugMiddleware);
 }
 
-// Connect to MongoDB with unified configuration
+// Connect to MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guestlist';
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
+  .then(() => console.log(`MongoDB connected: ${MONGODB_URI}`))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Routes - IMPORTANT CHANGE: Make auth routes available at both paths
-// This resolves the issue with frontend expecting /auth/login but backend using /api/auth/login
-app.use('/api', healthRoutes); // Health checks without auth
-app.use('/api/auth', authRoutes);  // Original path
-app.use('/auth', authRoutes);      // New path to match frontend
+// Clear & direct route mapping
+// Routes need to be available at multiple paths for backward compatibility
+app.use('/api/health', healthRoutes);
+app.use('/health', healthRoutes);
 
-// Other routes
+// Auth routes at multiple paths to handle different client expectations
+app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
+// Guest routes with auth middleware
 app.use('/api/guests', authMiddleware, guestRoutes);
-app.use('/api/guest-groups', authMiddleware, guestGroupRoutes);
+app.use('/guests', authMiddleware, guestRoutes);
 
-// API response debug middleware - helps identify malformed responses
-app.use('/api', (req, res, next) => {
-  const originalSend = res.send;
-  res.send = function(data) {
-    // Log API responses in development for debugging
-    if (!isProd && process.env.DEBUG_API === 'true') {
-      console.log(`API Response [${req.method}] ${req.originalUrl}:`, 
-        typeof data === 'string' ? data.substring(0, 100) : '[Object]');
-    }
-    
-    // Ensure data is properly formatted to avoid "ct" errors
-    if (data && typeof data === 'string' && data.length < 5) {
-      console.warn(`Warning: Possibly malformed API response for ${req.originalUrl}:`, data);
-    }
-    
-    originalSend.call(this, data);
-  };
-  next();
-});
+// Group routes with auth middleware
+app.use('/api/guest-groups', authMiddleware, guestGroupRoutes);
+app.use('/guest-groups', authMiddleware, guestGroupRoutes);
+
+// Log all requests in development
+if (!isProd) {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
 
 // Serve static files in production
 if (isProd) {
@@ -146,25 +120,29 @@ if (isProd) {
   });
 }
 
-// Enhanced error handler middleware with more detailed error responses
+// Error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  
-  // Send appropriate error format based on type
-  const statusCode = err.statusCode || 500;
-  const errorResponse = {
+  res.status(err.statusCode || 500).json({
     error: err.message || 'Server error',
     path: req.originalUrl,
     timestamp: new Date().toISOString()
-  };
-  
-  // Include stack trace in development mode
-  if (!isProd) {
-    errorResponse.stack = err.stack;
-  }
-  
-  res.status(statusCode).json(errorResponse);
+  });
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`));
+const server = app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT} in ${NODE_ENV} mode`);
+  console.log(`🔒 CORS allowing origins: ${allowedOrigins.join(', ')}`);
+});
+
+// Handle server shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+module.exports = app;

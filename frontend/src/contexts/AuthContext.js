@@ -15,11 +15,13 @@ export const AuthProvider = ({ children }) => {
   const [loginError, setLoginError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Configure axios with the correct backend URL
+  // Configure axios with the correct backend URL and handle CORS
   useEffect(() => {
     try {
-      // Determine API URL based on environment
+      // CRITICAL FIX: Always use the same base URL in the same format
+      // and never include "/api" in the base URL
       let apiBaseUrl;
+      
       if (window.location.hostname === 'bhaujanvypar.com') {
         apiBaseUrl = 'https://api.bhaujanvypar.com';
       } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -28,14 +30,38 @@ export const AuthProvider = ({ children }) => {
         apiBaseUrl = process.env.REACT_APP_API_URL || '';
       }
       
+      // Debug info - VERY important for troubleshooting
+      console.log('App host:', window.location.hostname);
       console.log('Setting API Base URL to:', apiBaseUrl);
-      axios.defaults.baseURL = apiBaseUrl;
       
-      // Disable withCredentials because we're using Bearer token
+      // Use a configuration object for axios
+      axios.defaults.baseURL = apiBaseUrl;
+      axios.defaults.headers.common['Content-Type'] = 'application/json';
+      
+      // CRITICAL - Disable credentials for CORS
       axios.defaults.withCredentials = false;
       
-      // Set common headers
-      axios.defaults.headers.common['Content-Type'] = 'application/json';
+      // Debug request interceptor
+      axios.interceptors.request.use(request => {
+        console.log('Starting Request:', request.method, request.url);
+        return request;
+      });
+      
+      // Debug response interceptor
+      axios.interceptors.response.use(
+        response => {
+          console.log('Response:', response.status);
+          return response;
+        },
+        error => {
+          console.error('Axios Error:', error.message);
+          if (error.response) {
+            console.error('Response Data:', error.response.data);
+            console.error('Response Status:', error.response.status);
+          }
+          return Promise.reject(error);
+        }
+      );
     } catch (error) {
       console.error('Error configuring axios:', error);
     }
@@ -45,12 +71,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const interceptor = axios.interceptors.request.use(
       config => {
+        // IMPORTANT: Only set token if it exists
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
-      },
-      error => Promise.reject(error)
+      }
     );
 
     return () => axios.interceptors.request.eject(interceptor);
@@ -62,11 +88,6 @@ export const AuthProvider = ({ children }) => {
       try {
         localStorage.setItem('token', token);
         syncManager.setToken(token);
-        if (navigator.onLine) {
-          syncManager.syncPendingActions().catch(err => 
-            console.warn('Background sync failed:', err)
-          );
-        }
       } catch (err) {
         console.error('Error in token effect:', err);
       }
@@ -75,16 +96,16 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Login function with error handling and fallback to offline mode
+  // Login function with fallback
   const login = useCallback(async (credentials) => {
     setLoginError(null);
     setIsLoading(true);
     
     try {
-      // For development testing and offline mode
+      // Development or offline mode
       if (!navigator.onLine || process.env.NODE_ENV === 'development') {
-        console.log('Using offline/development login mode');
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        console.log('Using development/offline login mode');
+        await new Promise(resolve => setTimeout(resolve, 500));
         const mockToken = 'mock-jwt-token-' + Date.now();
         setToken(mockToken);
         setUser({ 
@@ -96,17 +117,16 @@ export const AuthProvider = ({ children }) => {
         return { success: true, token: mockToken };
       }
       
-      // URL troubleshooting logs
-      console.log('Login attempt details:', {
-        baseURL: axios.defaults.baseURL,
-        endpoint: '/auth/login',
-        fullUrl: `${axios.defaults.baseURL}/auth/login`,
-        credentials: { ...credentials, password: '******' }
+      // Production login - CRITICAL: Use consistent path format!
+      // Don't include "/api" in the path since it's already in the baseURL
+      console.log('Attempting login with:', {
+        url: '/auth/login',
+        username: credentials.username,
+        passwordLength: credentials.password?.length || 0
       });
       
-      // Production login
       const response = await axios.post('/auth/login', credentials);
-      console.log('Login response:', response.data);
+      console.log('Login response received:', response.status);
       
       const { token: newToken, user: userData } = response.data;
       setToken(newToken);
@@ -116,44 +136,29 @@ export const AuthProvider = ({ children }) => {
       return { success: true, token: newToken, user: userData };
     } catch (error) {
       console.error('Login error:', error);
-      let errorMessage;
       
-      if (error.response) {
-        // Server returned an error
-        errorMessage = error.response.data.error || 'Login failed. Please check your credentials.';
-        console.log('Server returned error:', { 
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
+      // Generate fallback user on network error in production
+      if ((!error.response || error.message.includes('Network Error')) && process.env.NODE_ENV === 'production') {
+        console.log('Falling back to offline mode');
+        const mockToken = 'offline-jwt-token-' + Date.now();
+        setToken(mockToken);
+        setUser({ 
+          id: 'offline-user', 
+          username: credentials.username || 'user@example.com',
+          name: 'Offline User', 
+          isOfflineLogin: true
         });
-      } else if (error.request) {
-        // Request made but no response (network issue)
-        errorMessage = 'Could not connect to the server. Please check your internet connection.';
-        console.log('No response from server:', error.request);
-        
-        // Fall back to offline mode in production
-        if (process.env.NODE_ENV === 'production') {
-          console.log('Falling back to offline mode in production');
-          const mockToken = 'offline-jwt-token-' + Date.now();
-          setToken(mockToken);
-          setUser({ 
-            id: 'offline-user', 
-            username: credentials.username || 'user@example.com',
-            name: 'Offline User', 
-            isOfflineLogin: true
-          });
-          setIsLoading(false);
-          return { 
-            success: true, 
-            token: mockToken,
-            isOfflineLogin: true,
-            message: 'Logged in offline mode. Changes will sync when connection is restored.'
-          };
-        }
-      } else {
-        // Something else went wrong
-        errorMessage = 'An error occurred during login. Please try again.';
+        setIsLoading(false);
+        return { 
+          success: true, 
+          token: mockToken,
+          isOfflineLogin: true
+        };
       }
+      
+      const errorMessage = error.response?.data?.error || 
+                           error.message || 
+                           'An error occurred during login';
       
       setLoginError(errorMessage);
       setIsLoading(false);
@@ -161,14 +166,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Logout function
+  // Other methods...
   const logout = useCallback(() => {
     setToken('');
     setUser(null);
     localStorage.removeItem('token');
   }, []);
 
-  // Register function
   const register = useCallback(async (userData) => {
     try {
       setIsLoading(true);
