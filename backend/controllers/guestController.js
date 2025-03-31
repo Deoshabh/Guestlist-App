@@ -232,11 +232,164 @@ exports.bulkUpdateGuests = async (req, res) => {
   }
 };
 
-// Check if these methods are properly implemented:
-// - getGuestById
-// - getGuestStats
-// - bulkUpdateGuests
-// - exportGuestsCSV
-// - importGuestsCSV
+// Add missing getGuestById implementation
+exports.getGuestById = async (req, res) => {
+  try {
+    const guest = await Guest.findOne({ 
+      _id: req.params.id, 
+      user: req.user.id,
+      deleted: false 
+    }).populate('groupId', 'name');
+    
+    if (!guest) {
+      return res.status(404).json({ error: 'Guest not found' });
+    }
+    
+    res.json(guest);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
 
-// Each of these has inline fallbacks in the router, suggesting potential conflicts
+// Add missing getGuestStats implementation
+exports.getGuestStats = async (req, res) => {
+  try {
+    const total = await Guest.countDocuments({ user: req.user.id, deleted: false });
+    const invited = await Guest.countDocuments({ user: req.user.id, invited: true, deleted: false });
+    const pending = total - invited;
+    res.json({ total, invited, pending });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Add missing importGuestsCSV implementation
+exports.importGuestsCSV = async (req, res) => {
+  try {
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const file = req.files.file;
+    let importedGuests = [];
+    let errorRows = [];
+    const userId = req.user.id;
+    
+    // Use CSV options to not auto-detect headers
+    const csvOptions = {
+      headers: false,
+      renameHeaders: false
+    };
+    
+    let rows = [];
+    const csv = require('fast-csv');
+    await new Promise((resolve, reject) => {
+      csv.parseString(file.data.toString('utf8'), csvOptions)
+        .on('error', error => reject(error))
+        .on('data', row => rows.push(row))
+        .on('end', () => resolve());
+    });
+    
+    if (rows.length > 0) {
+      // Check if first row is header row by looking for "name" (case-insensitive)
+      const headers = rows[0];
+      const isFirstRowHeaders = typeof headers[0] === 'string' &&
+                                (headers[0].toLowerCase() === 'name' ||
+                                 headers[0].toLowerCase().includes('name'));
+      
+      const dataRows = isFirstRowHeaders ? rows.slice(1) : rows;
+      
+      for (const row of dataRows) {
+        try {
+          // Skip if row is empty or first column is empty
+          if (!row || row.length === 0 || !row[0]) continue;
+          
+          // Extract name and contact (contact is optional)
+          const name = row[0]?.trim();
+          const contact = row[1] ? row[1].trim() : '';
+          
+          if (name) {
+            // Check for duplicate guest
+            const exists = await Guest.findOne({ 
+              name, 
+              contact, 
+              deleted: false,
+              user: userId
+            });
+            if (!exists) {
+              let guest = new Guest({ 
+                name, 
+                contact,
+                user: userId
+              });
+              await guest.save();
+              importedGuests.push(guest);
+            }
+          }
+        } catch (err) {
+          errorRows.push({ row, error: err.message });
+        }
+      }
+      
+      return res.json({ 
+        message: 'Import complete', 
+        importedCount: importedGuests.length,
+        errors: errorRows.length > 0 ? errorRows : undefined
+      });
+    } else {
+      return res.status(400).json({ error: 'No data found in the CSV file' });
+    }
+  } catch (err) {
+    console.error('CSV Import Error:', err);
+    res.status(500).json({ 
+      error: 'Error importing guests',
+      details: err.message
+    });
+  }
+};
+
+// Add delete and undelete functionality
+exports.deleteGuest = async (req, res) => {
+  try {
+    const guest = await Guest.findOne({ 
+      _id: req.params.id, 
+      user: req.user.id,
+      deleted: false
+    });
+    
+    if (!guest) {
+      return res.status(404).json({ error: 'Guest not found' });
+    }
+    
+    guest.deleted = true;
+    await guest.save();
+    
+    res.json({ success: true, message: 'Guest deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.undoDeleteGuest = async (req, res) => {
+  try {
+    const guest = await Guest.findOne({ 
+      _id: req.params.id, 
+      user: req.user.id,
+      deleted: true
+    });
+    
+    if (!guest) {
+      return res.status(404).json({ error: 'Deleted guest not found' });
+    }
+    
+    guest.deleted = false;
+    await guest.save();
+    
+    res.json({ success: true, message: 'Guest restored successfully', guest });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
