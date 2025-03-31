@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
-import syncManager from '../utils/syncManager';
 
 // Create context
 const AuthContext = createContext();
@@ -12,60 +11,89 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
+  const [loginError, setLoginError] = useState(null);
 
-  // Set axios base URL
+  // Configure axios with the correct backend URL
   useEffect(() => {
     try {
-      if (process.env.NODE_ENV === 'production') {
-        axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
+      // Set the base URL from environment or use a relative path
+      const apiBaseUrl = process.env.REACT_APP_API_URL || '';
+      
+      // For deployments where the API is on a different domain
+      if (window.location.hostname === 'bhaujanvypar.com') {
+        axios.defaults.baseURL = 'https://api.bhaujanvypar.com';
+      } else {
+        axios.defaults.baseURL = apiBaseUrl;
       }
-      axios.interceptors.request.use(
-        (config) => {
-          if (!navigator.onLine && config.method !== 'get') {
-            throw new axios.Cancel('Currently offline. Request will be queued.');
-          }
-          return config;
-        },
-        (error) => Promise.reject(error)
-      );
+      
+      console.log('API Base URL set to:', axios.defaults.baseURL);
     } catch (error) {
-      console.error('Error setting up axios:', error);
+      console.error('Error setting axios defaults:', error);
     }
   }, []);
 
-  // Update syncManager when token changes
+  // Setup auth header for all requests
   useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-      syncManager.setToken(token);
-      if (navigator.onLine) {
-        syncManager.syncPendingActions();
-      }
-    } else {
-      localStorage.removeItem('token');
-    }
+    const interceptor = axios.interceptors.request.use(
+      config => {
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      error => Promise.reject(error)
+    );
+
+    return () => axios.interceptors.request.eject(interceptor);
   }, [token]);
 
-  // Stub login function
+  // Login function with better error handling
   const login = useCallback(async (credentials) => {
-    console.warn('[STUB] Login called with:', credentials);
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    setToken(mockToken);
-    setUser({ id: 'user-1', username: credentials.username || 'user@example.com' });
-    return { token: mockToken };
+    setLoginError(null);
+    try {
+      console.log('Attempting login with API at:', axios.defaults.baseURL);
+      const response = await axios.post('/api/auth/login', credentials);
+      
+      const { token: newToken } = response.data;
+      setToken(newToken);
+      localStorage.setItem('token', newToken);
+      
+      return { success: true, token: newToken };
+    } catch (error) {
+      console.error('Login failed:', error);
+      
+      // Handle specific error scenarios
+      if (error.response) {
+        // Server returned an error
+        setLoginError(error.response.data.error || 'Login failed. Please check your credentials.');
+      } else if (error.request) {
+        // Request was made but no response
+        setLoginError('Could not connect to the server. Please check your internet connection.');
+      } else {
+        // Something else went wrong
+        setLoginError('An error occurred during login. Please try again.');
+      }
+      
+      return { success: false, error: error.response?.data?.error || error.message };
+    }
   }, []);
 
   // Stub logout function
   const logout = useCallback(() => {
-    console.warn('[STUB] Logout called');
-    setToken(null);
+    setToken('');
     setUser(null);
+    localStorage.removeItem('token');
   }, []);
 
   // Stub register function
   const register = useCallback(async (userData) => {
-    console.warn('[STUB] Register called with:', userData);
-    return { success: true };
+    try {
+      const response = await axios.post('/api/auth/register', userData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return { success: false, error: error.response?.data?.error || error.message };
+    }
   }, []);
 
   // Context value
@@ -79,6 +107,8 @@ export const AuthProvider = ({ children }) => {
     register,
     showRegister,
     setShowRegister,
+    loginError,
+    setLoginError,
     isAuthenticated: !!token
   };
 

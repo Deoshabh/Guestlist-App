@@ -4,7 +4,7 @@
     "frontend": {
       "buildPack": "dockerfile",
       "dockerfilePath": "frontend/Dockerfile",
-      "host": "your-frontend-domain.com",
+      "host": "bhaujanvypar.com",
       "protocol": "https",
       "repository": {
         "type": "git",
@@ -14,12 +14,12 @@
       "port": 80,
       "env": {
         "NODE_ENV": "production",
-        "REACT_APP_API_URL": "https://your-api-domain.com"
+        "REACT_APP_API_URL": "https://api.bhaujanvypar.com"
       }
     },
     "backend": {
       "buildPack": "nodejs",
-      "host": "your-api-domain.com",
+      "host": "api.bhaujanvypar.com",
       "protocol": "https",
       "repository": {
         "type": "git",

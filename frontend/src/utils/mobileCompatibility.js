@@ -5,190 +5,136 @@
 
 // Apply runtime patches to fix common mobile-specific issues
 export function applyMobilePatches() {
-  // Apply Array method protections to prevent common mobile errors
-  protectArrayMethods();
+  console.log('[Mobile] Applying mobile compatibility patches');
   
-  // Add touch event safeguards
-  enhanceTouchEvents();
-  
-  // Add swipe gesture protections
-  protectSwipeGestures();
-  
-  // Fix event propagation issues on mobile
-  fixEventBubbling();
-  
-  // Apply recovery patches for common mobile issues
-  applyRecoveryPatches();
-  
-  console.log('Mobile compatibility patches applied');
-}
-
-// Protect Array methods from undefined/null errors common on mobile devices
-function protectArrayMethods() {
   try {
-    // Protect common array methods that cause mobile crashes
-    ['map', 'filter', 'forEach', 'find', 'reduce', 'some', 'every'].forEach(method => {
-      const original = Array.prototype[method];
-      
-      if (original && typeof original === 'function') {
-        Array.prototype[method] = function(...args) {
-          if (this === null || this === undefined) {
-            console.warn(`Protected ${method}() call on ${this} - returning safe default`);
-            // Return appropriate default value based on method
-            if (method === 'map' || method === 'filter') return [];
-            if (method === 'find') return undefined;
-            if (method === 'some' || method === 'every') return false;
-            if (method === 'reduce') throw new TypeError('Reduce of null or undefined not allowed');
-            return undefined;
-          }
-          return original.apply(this, args);
-        };
-      }
-    });
-  } catch (error) {
-    console.error('Error applying array protections:', error);
-  }
-}
-
-// Add safeguards for touch events that commonly break in mobile WebViews
-function enhanceTouchEvents() {
-  try {
-    // Intercept and fix problematic touch events
-    const touchEvents = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
+    // Fix 300ms tap delay on iOS devices
+    fixTapDelay();
     
-    touchEvents.forEach(eventType => {
-      const originalAdd = EventTarget.prototype.addEventListener;
-      const originalRemove = EventTarget.prototype.removeEventListener;
-      
-      // Override addEventListener to add error protection
-      EventTarget.prototype.addEventListener = function(type, listener, options) {
-        if (type === eventType && typeof listener === 'function') {
-          // Wrap the listener in a try-catch
-          const safeListener = function(event) {
-            try {
-              return listener.call(this, event);
-            } catch (error) {
-              console.warn(`Error in touch event (${type}) listener caught:`, error);
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          };
-          
-          // Store reference to original for removal
-          if (!listener._safeVersion) {
-            listener._safeVersion = safeListener;
-          }
-          
-          return originalAdd.call(this, type, safeListener, options);
-        }
-        
-        return originalAdd.call(this, type, listener, options);
-      };
-      
-      // Override removeEventListener to handle wrapped functions
-      EventTarget.prototype.removeEventListener = function(type, listener, options) {
-        if (type === eventType && typeof listener === 'function') {
-          return originalRemove.call(
-            this, 
-            type, 
-            listener._safeVersion || listener, 
-            options
-          );
-        }
-        
-        return originalRemove.call(this, type, listener, options);
-      };
-    });
-  } catch (error) {
-    console.error('Error enhancing touch events:', error);
-  }
-}
-
-// Protect swipe gesture handlers from common errors
-function protectSwipeGestures() {
-  try {
-    // Add global error handler for touch events
-    window.addEventListener('error', function(event) {
-      if (event.error && 
-          (event.error.message?.includes('swipe') || 
-           event.error.message?.includes('touch') ||
-           event.error.message?.includes('drag'))) {
-        
-        console.warn('Swipe gesture error intercepted:', event.error);
-        
-        // Add temp fix for swipe errors - cancel all current touches
-        const touchend = new Event('touchend', { bubbles: true, cancelable: true });
-        document.dispatchEvent(touchend);
-        
-        // Prevent default action
-        event.preventDefault();
-      }
-    });
-  } catch (error) {
-    console.error('Error protecting swipe gestures:', error);
-  }
-}
-
-// Fix event bubbling issues on mobile browsers
-function fixEventBubbling() {
-  try {
-    // Ensure click events properly propagate on iOS
-    document.addEventListener('touchend', function(e) {
-      // Convert touchend to click for elements with role="button" or actual buttons
-      const target = e.target.closest('[role="button"], button, a, input[type="checkbox"], input[type="radio"]');
-      
-      if (target && !target.disabled) {
-        // Get the position of the touch
-        const touch = e.changedTouches[0];
-        
-        // Create a mouse event
-        const clickEvent = new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          screenX: touch?.screenX || 0,
-          screenY: touch?.screenY || 0,
-          clientX: touch?.clientX || 0,
-          clientY: touch?.clientY || 0
-        });
-        
-        // Dispatch the event conditionally if it looks like we need to
-        if (target.tagName === 'INPUT' || window.navigator.userAgent.match(/iPhone|iPad|iPod/)) {
-          target.dispatchEvent(clickEvent);
-        }
-      }
-    }, false);
-  } catch (error) {
-    console.error('Error fixing event bubbling:', error);
-  }
-}
-
-// Add recovery functionality that was previously in mobileRecovery.js
-function applyRecoveryPatches() {
-  try {
-    // Register global error handler for recoverable mobile errors
-    window.__cleanupErrorListeners = function() {
-      console.log('Cleaning up problematic event listeners');
-      
-      const safeListener = () => {};
-      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
-        window.addEventListener(type, safeListener, { capture: true });
-      });
-    };
+    // Fix viewport issues on iOS
+    fixIOSViewport();
     
-    // Add recovery function for mobile crashes
-    window.attemptRecovery = function() {
-      console.log('Attempting auto-recovery for mobile issues');
-      
-      // Re-apply protections
-      protectArrayMethods();
-      enhanceTouchEvents();
-      
-      return true;
-    };
+    // Fix overscroll behavior
+    fixOverscroll();
+    
+    // Add touch-specific optimizations
+    addTouchOptimizations();
+    
+    // Apply iOS PWA specific fixes
+    if (isIOSPWA()) {
+      fixIOSPWA();
+    }
+    
+    console.log('[Mobile] Mobile compatibility patches applied successfully');
   } catch (error) {
-    console.error('Error applying recovery patches:', error);
+    console.error('[Mobile] Error applying mobile patches:', error);
   }
+}
+
+/**
+ * Fix 300ms tap delay on iOS devices
+ */
+function fixTapDelay() {
+  // Use fastclick if available, otherwise do some basic optimization
+  if (typeof document !== 'undefined') {
+    // Add touch-action: manipulation to body
+    document.body.style.touchAction = 'manipulation';
+    
+    // Add viewport meta tag if not present
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+      document.head.appendChild(meta);
+    }
+  }
+}
+
+/**
+ * Fix viewport issues on iOS
+ */
+function fixIOSViewport() {
+  // Handle iOS viewport height issues and resize events
+  if (typeof window !== 'undefined' && isIOS()) {
+    window.addEventListener('resize', () => {
+      // Fix for iOS vh units issue
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }, { passive: true });
+    
+    // Initial call
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  }
+}
+
+/**
+ * Fix overscroll behavior
+ */
+function fixOverscroll() {
+  if (typeof document !== 'undefined') {
+    document.body.style.overscrollBehavior = 'none';
+    
+    // Prevent pull-to-refresh on mobile
+    document.body.addEventListener('touchmove', (e) => {
+      if (document.documentElement.scrollTop === 0 && 
+          e.touches.length === 1 &&
+          e.touches[0].screenY > e.touches[0].clientY) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  }
+}
+
+/**
+ * Add touch-specific optimizations
+ */
+function addTouchOptimizations() {
+  if (typeof document !== 'undefined') {
+    // Add class to body for CSS targeting
+    document.body.classList.add('touch-device');
+    
+    // Apply touch manipulation to common interactive elements
+    const touchElements = document.querySelectorAll('button, a, input, select, textarea, [role="button"]');
+    touchElements.forEach(el => {
+      el.style.touchAction = 'manipulation';
+    });
+  }
+}
+
+/**
+ * Fix PWA issues on iOS
+ */
+function fixIOSPWA() {
+  if (typeof document !== 'undefined') {
+    // Add class to body for iOS PWA
+    document.body.classList.add('ios-pwa');
+    
+    // Prevent text selection in PWA
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.webkitTouchCallout = 'none';
+  }
+}
+
+/**
+ * Check if running on iOS
+ * @returns {boolean} Whether the device is running iOS
+ */
+export function isIOS() {
+  if (typeof navigator === 'undefined') return false;
+  
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Check if running as PWA on iOS
+ * @returns {boolean} Whether the app is running as a PWA on iOS
+ */
+export function isIOSPWA() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  
+  return isIOS() && window.navigator.standalone === true;
 }
 
 // Helper to detect if rendering on a mobile device
@@ -345,6 +291,45 @@ function fixDoubleTapZoom() {
   }
 }
 
+// Protect native swipe gestures from being interrupted
+// Fix event bubbling issues on mobile
+function fixEventBubbling() {
+  try {
+    // Add capture phase event listeners to prevent certain events from bubbling incorrectly
+    document.addEventListener('touchend', (e) => {
+      // Check if target has no-bubble class or attribute
+      if (e.target.classList.contains('no-bubble') || 
+          e.target.getAttribute('data-no-bubble') === 'true') {
+        e.stopPropagation();
+      }
+    }, true);
+  } catch (error) {
+    console.error('Error fixing event bubbling:', error);
+  }
+}
+
+function protectSwipeGestures() {
+  try {
+    // Add passive event listeners for swipe gestures
+    const options = { passive: true };
+    document.addEventListener('touchstart', () => {}, options);
+    document.addEventListener('touchmove', () => {}, options);
+    
+    // Add CSS to prevent custom swipe handlers from interfering with native gestures
+    const style = document.createElement('style');
+    style.innerHTML = `
+      /* Allow native swipe gestures on elements that should have them */
+      .allow-swipe {
+        touch-action: pan-x pan-y;
+        -webkit-overflow-scrolling: touch;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (error) {
+    console.error('Error protecting swipe gestures:', error);
+  }
+}
+
 // Fix touch action CSS for improved scrolling
 function addTouchActionCSS() {
   try {
@@ -407,6 +392,8 @@ applyMobileFixes();
 
 export default {
   applyMobilePatches,
+  isIOS,
+  isIOSPWA,
   isMobileDevice,
   isPWAMode,
   toggleDesktopView,

@@ -17,20 +17,47 @@ const app = express();
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProd = NODE_ENV === 'production';
 
-// Configure CORS for production
+// Get allowed origins from environment or use defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
+  process.env.ALLOWED_ORIGINS.split(',') : 
+  ['https://bhaujanvypar.com', 'https://www.bhaujanvypar.com', 'http://localhost:3000'];
+
+// Improved CORS configuration for better security and preflight handling
 const corsOptions = {
-  origin: isProd ? (process.env.ALLOWED_ORIGINS?.split(',') || '*') : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || !isProd) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(null, false);
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  credentials: true,
+  maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 204 // No content for OPTIONS responses
 };
 
-// Apply CORS middleware before other middleware to handle preflight requests
+// Apply CORS middleware before other middleware
 app.use(cors(corsOptions));
 
-// Global OPTIONS handler for preflight requests
-app.options('*', cors(corsOptions));
+// Handle OPTIONS preflight requests explicitly
+app.options('*', (req, res) => {
+  // Set CORS headers explicitly for preflight
+  const origin = req.headers.origin;
+  if (!isProd || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Max-Age', '86400');
+  }
+  res.status(204).end();
+});
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));

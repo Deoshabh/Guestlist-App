@@ -1,109 +1,74 @@
 /**
- * Utility for providing haptic feedback on actions
- * Falls back gracefully when browser doesn't support vibration API
+ * Utilities for haptic feedback
  */
 
-// Check if vibration API is supported
-const hasVibrationSupport = () => {
-  return 'vibrate' in navigator;
-};
-
-// Vibration patterns
-const VIBRATION_PATTERNS = {
-  LIGHT: 10,
-  MEDIUM: 25,
-  ERROR: [30, 50, 30],
-  SUCCESS: [20, 40, 60],
-  WARNING: [40, 30, 40]
-};
-
-// Trigger vibration with pattern
-const vibrate = (pattern) => {
-  if (hasVibrationSupport() && !localStorage.getItem('haptic_disabled')) {
+/**
+ * Provide light haptic feedback (for small UI interactions)
+ */
+export const lightFeedback = () => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
     try {
-      navigator.vibrate(pattern);
+      navigator.vibrate(10);
     } catch (error) {
-      console.warn('Failed to trigger haptic feedback:', error);
+      // Fail silently - haptic feedback is non-critical
     }
   }
 };
 
 /**
- * Light feedback for simple interactions like selections
+ * Provide medium haptic feedback (for confirmations)
  */
-const lightFeedback = () => {
-  vibrate(VIBRATION_PATTERNS.LIGHT);
-};
-
-/**
- * Medium feedback for confirming actions
- */
-const mediumFeedback = () => {
-  vibrate(VIBRATION_PATTERNS.MEDIUM);
-};
-
-/**
- * Error feedback for when something goes wrong
- */
-const errorFeedback = () => {
-  vibrate(VIBRATION_PATTERNS.ERROR);
-};
-
-/**
- * Success feedback for completed actions
- */
-const successFeedback = () => {
-  vibrate(VIBRATION_PATTERNS.SUCCESS);
-};
-
-/**
- * Warning feedback
- */
-const warningFeedback = () => {
-  vibrate(VIBRATION_PATTERNS.WARNING);
-};
-
-/**
- * Disable all haptic feedback
- */
-const disableHaptics = () => {
-  localStorage.setItem('haptic_disabled', 'true');
-};
-
-/**
- * Enable haptic feedback
- */
-const enableHaptics = () => {
-  localStorage.removeItem('haptic_disabled');
-};
-
-/**
- * Check if haptics are currently enabled
- */
-const isHapticsEnabled = () => {
-  return !localStorage.getItem('haptic_disabled');
-};
-
-/**
- * Toggle haptic feedback on/off
- */
-const toggleHaptics = () => {
-  if (isHapticsEnabled()) {
-    disableHaptics();
-  } else {
-    enableHaptics();
+export const mediumFeedback = () => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate(15);
+    } catch (error) {
+      // Fail silently - haptic feedback is non-critical
+    }
   }
-  return isHapticsEnabled();
 };
 
-export default {
+/**
+ * Provide success haptic feedback (for completed actions)
+ */
+export const successFeedback = () => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate([10, 30, 10]);
+    } catch (error) {
+      // Fail silently - haptic feedback is non-critical
+    }
+  }
+};
+
+/**
+ * Provide error haptic feedback (for failed actions)
+ */
+export const errorFeedback = () => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate([50, 30, 50]);
+    } catch (error) {
+      // Fail silently - haptic feedback is non-critical
+    }
+  }
+};
+
+/**
+ * Check if haptic feedback is supported
+ * @returns {boolean} Whether haptic feedback is supported
+ */
+export const isSupported = () => {
+  return typeof navigator !== 'undefined' && !!navigator.vibrate;
+};
+
+// Export as an object for named imports
+const haptic = {
   lightFeedback,
   mediumFeedback,
-  errorFeedback,
   successFeedback,
-  warningFeedback,
-  isHapticsEnabled,
-  enableHaptics,
-  disableHaptics,
-  toggleHaptics
+  errorFeedback,
+  isSupported
 };
+
+export default haptic;

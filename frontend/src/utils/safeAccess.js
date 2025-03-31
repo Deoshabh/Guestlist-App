@@ -1,117 +1,97 @@
 /**
- * Utility for safe data access to prevent application crashes
- * when accessing properties of potentially undefined objects
+ * Utilities for safely accessing object properties
  */
 
 /**
- * Safely access nested properties of an object without throwing errors
+ * Safely get a property from an object, with default value if not found
  * 
- * @param {Object} obj - The object to access properties from
- * @param {string} path - The path to the property (e.g. 'user.profile.name')
- * @param {*} defaultValue - The default value to return if the property doesn't exist
+ * @param {Object} obj - The object to get the property from
+ * @param {string} path - The path to the property, e.g. 'user.profile.name'
+ * @param {*} defaultValue - The default value to return if the property is not found
  * @returns {*} The property value or the default value
  */
-export const safeGet = (obj, path, defaultValue = undefined) => {
+export const safeGet = (obj, path, defaultValue = null) => {
+  if (!obj || !path) return defaultValue;
+  
   try {
-    if (!obj) return defaultValue;
+    const parts = typeof path === 'string' ? path.split('.') : path;
     
-    // Handle direct property access
-    if (!path.includes('.')) {
-      return obj[path] === undefined ? defaultValue : obj[path];
-    }
-    
-    // Handle nested properties
-    const keys = path.split('.');
     let result = obj;
-    
-    for (const key of keys) {
-      if (result === null || result === undefined) {
+    for (const part of parts) {
+      if (result === undefined || result === null) {
         return defaultValue;
       }
-      result = result[key];
+      result = result[part];
     }
     
     return result === undefined ? defaultValue : result;
   } catch (error) {
-    console.warn(`Error safely accessing ${path}:`, error);
+    console.warn(`Error accessing ${path}:`, error);
     return defaultValue;
   }
 };
 
 /**
- * Safely set a nested property on an object, creating intermediate objects if needed
+ * Safely set a property on an object, creating intermediate objects if needed
  * 
  * @param {Object} obj - The object to set the property on
- * @param {string} path - The path to the property (e.g. 'user.profile.name')
+ * @param {string|Array} path - The path to the property
  * @param {*} value - The value to set
- * @returns {Object} The updated object
+ * @returns {Object} The modified object
  */
 export const safeSet = (obj, path, value) => {
+  if (!obj || !path) return obj;
+  
   try {
-    if (!obj || typeof obj !== 'object') return obj;
+    const parts = typeof path === 'string' ? path.split('.') : path;
     
-    // Handle direct property access
-    if (!path.includes('.')) {
-      obj[path] = value;
-      return obj;
-    }
-    
-    // Handle nested properties
-    const keys = path.split('.');
     let current = obj;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      if (current[key] === undefined || current[key] === null) {
-        current[key] = {};
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      if (!(part in current)) {
+        current[part] = {};
       }
-      current = current[key];
+      current = current[part];
     }
     
-    current[keys[keys.length - 1]] = value;
+    current[parts[parts.length - 1]] = value;
     return obj;
   } catch (error) {
-    console.warn(`Error safely setting ${path}:`, error);
+    console.warn(`Error setting ${path}:`, error);
     return obj;
   }
 };
 
 /**
- * Check if an object has a nested property
+ * Check if a property exists in an object
  * 
  * @param {Object} obj - The object to check
- * @param {string} path - The path to the property (e.g. 'user.profile.name')
+ * @param {string} path - The path to the property
  * @returns {boolean} Whether the property exists
  */
 export const safeHas = (obj, path) => {
+  if (!obj || !path) return false;
+  
   try {
-    if (!obj) return false;
+    const parts = typeof path === 'string' ? path.split('.') : path;
     
-    // Handle direct property access
-    if (!path.includes('.')) {
-      return Object.prototype.hasOwnProperty.call(obj, path);
-    }
-    
-    // Handle nested properties
-    const keys = path.split('.');
     let current = obj;
-    
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      if (current[key] === undefined || current[key] === null) {
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (current === undefined || current === null) {
         return false;
       }
-      current = current[key];
+      current = current[parts[i]];
     }
     
-    return Object.prototype.hasOwnProperty.call(current, keys[keys.length - 1]);
+    return current !== undefined && 
+           current !== null && 
+           Object.prototype.hasOwnProperty.call(current, parts[parts.length - 1]);
   } catch (error) {
     console.warn(`Error checking if ${path} exists:`, error);
     return false;
   }
 };
 
-// Default export for backward compatibility
 export default {
   get: safeGet,
   set: safeSet,
