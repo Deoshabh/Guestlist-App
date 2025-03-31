@@ -31,6 +31,8 @@
   /* Safe area insets for iOS */
   body {
     padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    background-color: #f0f2f5;
+    color: #333;
   }
   
   /* Add padding to the bottom to account for bottom nav bar */

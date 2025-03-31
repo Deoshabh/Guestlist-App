@@ -1,45 +1,28 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration';
-import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { UIProvider } from './contexts/UIContext';
-import { GuestProvider } from './contexts/GuestContext';
-import { NetworkProvider } from './contexts/NetworkContext';
-import { ToastProvider } from './components/ToastManager';
-import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
+import App from './App';
 
-// Create root for React 18
-const root = createRoot(document.getElementById('root'));
+// Create root and render basic app first
+const rootElement = document.getElementById('root');
+const root = createRoot(rootElement);
 
-// Handle global errors
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
-});
-
+// Simplify rendering to ensure the app at least shows up
 root.render(
-  <ErrorBoundary showDetails={true}>
-    <ToastProvider>
-      <BrowserRouter>
-        <NetworkProvider>
-          <AuthProvider>
-            <UIProvider>
-              <GuestProvider>
-                <App />
-              </GuestProvider>
-            </UIProvider>
-          </AuthProvider>
-        </NetworkProvider>
-      </BrowserRouter>
-    </ToastProvider>
-  </ErrorBoundary>
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
 
-// Register service worker with simplified error handling
-try {
-  serviceWorkerRegistration.register();
-} catch (error) {
-  console.warn('ServiceWorker registration failed:', error);
+// Register service worker later
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(registration => {
+        console.log('SW registered:', registration);
+      })
+      .catch(error => {
+        console.log('SW registration failed:', error);
+      });
+  });
 }

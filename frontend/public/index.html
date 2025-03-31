@@ -7,27 +7,13 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Guest Management Application" />
 
-    <!-- Preload critical icons to avoid 404 errors -->
-    <link rel="preload" as="image" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="preload" as="image" href="%PUBLIC_URL%/logo512.png" />
-
-    <!-- Inline fallback for icons if they fail to load -->
+    <!-- Critical inline script - Fixes icons and analytics issues -->
     <script>
-      // Simple error handler for icons
-      window.addEventListener('error', function(e) {
-        if (e.target && (e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
-          if (e.target.href && e.target.href.includes('logo192.png')) {
-            console.log('Creating fallback for logo192.png');
-            createFallbackIcon(192);
-          }
-          if (e.target.href && e.target.href.includes('logo512.png')) {
-            console.log('Creating fallback for logo512.png');
-            createFallbackIcon(512);
-          }
-        }
-      }, true);
-
-      // Create a fallback icon when needed
+      // Block analytics requests to avoid CORS errors
+      window.ga = function() {};
+      window.gtag = function() {};
+      
+      // Fix icon loading issues
       function createFallbackIcon(size) {
         try {
           const canvas = document.createElement('canvas');
@@ -41,32 +27,26 @@
           
           // Text
           ctx.fillStyle = 'white';
-          ctx.font = (size/4) + 'px Arial';
+          ctx.font = 'bold ' + (size/4) + 'px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('GM', size/2, size/2);
           
-          // Replace all icons with this one
-          const dataUrl = canvas.toDataURL('image/png');
-          document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => {
-            if (link.href && link.href.includes('logo' + size + '.png')) {
-              link.href = dataUrl;
-            }
-          });
+          return canvas.toDataURL('image/png');
         } catch(e) {
-          console.error('Failed to create fallback icon:', e);
+          console.error('Failed to create icon:', e);
+          return '';
         }
       }
 
-      // Block Google Analytics to prevent console errors
-      window.ga = function() {};
-      window.gtag = function() {};
+      // Pre-generate icon data URLs
+      var icon192 = createFallbackIcon(192);
+      var icon512 = createFallbackIcon(512);
     </script>
 
-    <!-- Icons with direct fallbacks -->
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="%PUBLIC_URL%/logo512.png" />
+    <!-- Add local icons with direct inline URLs to avoid network requests -->
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAIVBMVEVMaXE7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvZIctdUAAAACnRSTlMAFSk/UG2In7TT88vnbgAAAO1JREFUeNrt2zEKg0AUBuD/RatoIeQAQQ9gZW9hY2FnaWNnZWdvYeEBPEFyCcHSJRcQlNll1vCK9833LK8ZeIw3wBhjjDHGGGP/5n3JsuXzM8DYsrwBxq67AkxF8wSY+vUGmIrtDJi6PgBj+XwAjHVHwFS0R8BU9gRM3e+Aqe0AmNptgKlfj4Cp5QgYm18AY49yB0y9HoCxSXkCpualA4w1ygswNikfwFirDICxWrGAsQjMAGMLWAaMRWAMGKtABIxVIALGKhABY5FSAWPBdYCxWumAsQpEwFgFImCsAhEwFikVMNYoHTD2e6wCxhhjjDHGWLY+FhVf7dUZiaoAAAAASUVORK5CYII=" />
+    <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADABAMAAACg8nE0AAAAIVBMVEVMaXE7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvY7gvZIctdUAAAACnRSTlMAFSk/UG2In7TT88vnbgAAAO1JREFUeNrt2zEKg0AUBuD/RatoIeQAQQ9gZW9hY2FnaWNnZWdvYeEBPEFyCcHSJRcQlNll1vCK9833LK8ZeIw3wBhjjDHGGGP/5n3JsuXzM8DYsrwBxq67AkxF8wSY+vUGmIrtDJi6PgBj+XwAjHVHwFS0R8BU9gRM3e+Aqe0AmNptgKlfj4Cp5QgYm18AY49yB0y9HoCxSXkCpualA4w1ygswNikfwFirDICxWrGAsQjMAGMLWAaMRWAMGKtABIxVIALGKhABY5FSAWPBdYCxWumAsQpEwFgFImCsAhEwFikVMNYoHTD2e6wCxhhjjDHGWLY+FhVf7dUZiaoAAAAASUVORK5CYII=" />
 
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 

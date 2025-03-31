@@ -114,21 +114,21 @@ const openDB = () => {
   });
 };
 
-// Add these functions as standalone for direct imports
+// Add these as separate exports to fix the missing function errors
 export const saveContact = async (contact) => {
-  // Generate an ID if not provided
-  if (!contact._id) {
-    contact._id = `contact_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  }
-  
-  // Add to memory cache
-  if (!memoryCache.contacts) {
-    memoryCache.contacts = [];
-  }
-  memoryCache.contacts.push(contact);
-  
   try {
-    // Store in localStorage as fallback
+    // Generate an ID if not provided
+    if (!contact._id) {
+      contact._id = `contact_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
+    
+    // Add to memory cache
+    if (!memoryCache.contacts) {
+      memoryCache.contacts = [];
+    }
+    memoryCache.contacts.push(contact);
+    
+    // Try to store in localStorage for persistence
     try {
       localStorage.setItem(`contact_${contact._id}`, JSON.stringify(contact));
     } catch (err) {
@@ -144,25 +144,22 @@ export const saveContact = async (contact) => {
 
 export const getContacts = async () => {
   try {
-    // Return memory cache if available
-    if (memoryCache.contacts && memoryCache.contacts.length) {
-      return memoryCache.contacts;
-    }
-    
-    // Initialize contacts cache
-    memoryCache.contacts = [];
-    
-    // Look for contacts in localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('contact_')) {
-        try {
-          const contact = JSON.parse(localStorage.getItem(key));
-          if (contact) {
-            memoryCache.contacts.push(contact);
+    // Initialize contacts cache if needed
+    if (!memoryCache.contacts) {
+      memoryCache.contacts = [];
+      
+      // Try to load from localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('contact_')) {
+          try {
+            const contact = JSON.parse(localStorage.getItem(key));
+            if (contact) {
+              memoryCache.contacts.push(contact);
+            }
+          } catch (err) {
+            console.warn('Failed to parse contact from localStorage:', err);
           }
-        } catch (err) {
-          console.warn('Failed to parse contact from localStorage:', err);
         }
       }
     }
@@ -553,7 +550,7 @@ const dbOperations = {
     }
   },
   
-  // Reference contact operations in dbOperations
+  // Add contact methods directly to the object
   saveContact,
   getContacts,
   

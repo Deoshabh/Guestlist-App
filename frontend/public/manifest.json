@@ -1,8 +1,6 @@
 {
-  "id": "guest-manager-pwa",
   "short_name": "Guest Manager",
-  "name": "Guest Management Application",
-  "description": "Manage guest check-ins and registrations",
+  "name": "Guest Management App",
   "icons": [
     {
       "src": "favicon.ico",
@@ -12,23 +10,16 @@
     {
       "src": "./logo192.png",
       "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
+      "sizes": "192x192"
     },
     {
       "src": "./logo512.png",
       "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "sizes": "512x512"
     }
   ],
-  "start_url": "./",
+  "start_url": ".",
   "display": "standalone",
   "theme_color": "#3498db",
-  "background_color": "#f0f2f5",
-  "orientation": "portrait",
-  "dir": "ltr",
-  "lang": "en-US",
-  "categories": ["productivity", "business"],
-  "scope": "./"
+  "background_color": "#f0f2f5"
 }

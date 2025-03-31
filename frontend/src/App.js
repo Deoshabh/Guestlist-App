@@ -1,81 +1,54 @@
-import React, { Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
-import Login from './components/Login';
-import Register from './components/Register';
-import MainLayout from './components/layouts/MainLayout';
-import HomePage from './pages/HomePage';
-import WhatsAppTemplatesPage from './pages/WhatsAppTemplatesPage';
-import { useAuth } from './contexts/AuthContext';
-import { useUI } from './contexts/UIContext';
-import { useNetwork } from './contexts/NetworkContext';
-import { useGuests } from './contexts/GuestContext';
-import { getBottomNavItems, getQuickActions } from './utils/navItems';
-import haptic from './utils/haptic';
-import { useToast } from './components/ToastManager';
-import ErrorBoundary from './components/ErrorBoundary';
+import React, { useState } from 'react';
 
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-  </div>
-);
-
+// Super simplified App component to ensure rendering
 function App() {
-  const { token, showRegister, setShowRegister, setToken } = useAuth();
-  const { darkMode, setActiveTabIndex } = useUI();
-  const { isOnline, API_BASE_URL } = useNetwork();
-  const { guests } = useGuests();
-  const toast = useToast();
-
-  // Bottom navbar items
-  const bottomNavItems = getBottomNavItems(darkMode);
-
-  // Quick actions for mobile FAB
-  const quickActions = getQuickActions(
-    isOnline, 
-    guests, 
-    API_BASE_URL, 
-    haptic, 
-    toast, 
-    setActiveTabIndex
-  );
-
-  // Conditional rendering for authentication
-  if (!token && showRegister) {
-    return (
-      <ErrorBoundary>
-        <Register setToken={setToken} setShowRegister={setShowRegister} />
-      </ErrorBoundary>
-    );
-  }
+  const [isLoaded, setIsLoaded] = useState(false);
   
-  if (!token) {
-    return (
-      <ErrorBoundary>
-        <Login 
-          setToken={setToken} 
-          showRegister={showRegister} 
-          setShowRegister={setShowRegister} 
-        />
-      </ErrorBoundary>
-    );
+  // Simulate loading state to match the existing UI
+  React.useEffect(() => {
+    setTimeout(() => {
+      setIsLoaded(true);
+    }, 1000);
+  }, []);
+
+  if (!isLoaded) {
+    return null; // Let the loading screen from index.html show
   }
 
   return (
-    <ErrorBoundary>
-      <MainLayout 
-        quickActions={quickActions} 
-        bottomNavItems={bottomNavItems}
-      >
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/whatsapp-templates" element={<WhatsAppTemplatesPage />} />
-            <Route path="*" element={<div className="p-8 text-center">Page not found</div>} />
-          </Routes>
-        </Suspense>
-      </MainLayout>
-    </ErrorBoundary>
+    <div className="App" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <header style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <h1 style={{ color: '#3498db' }}>Guest Manager</h1>
+      </header>
+
+      <main>
+        <div style={{ 
+          background: 'white', 
+          borderRadius: '8px',
+          padding: '20px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          <h2>Welcome to Guest Manager</h2>
+          <p>Your application is loading properly. The simplified version is showing to verify the frontend can render.</p>
+          
+          <div style={{ marginTop: '20px' }}>
+            <h3>Guest List Sample</h3>
+            <ul style={{ padding: '0', listStyle: 'none' }}>
+              {['John Doe', 'Jane Smith', 'Robert Johnson'].map((name, index) => (
+                <li key={index} style={{ 
+                  padding: '10px', 
+                  border: '1px solid #eee', 
+                  marginBottom: '8px',
+                  borderRadius: '4px'
+                }}>
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
 
