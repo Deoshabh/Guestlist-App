@@ -7,6 +7,16 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Guest Management Application" />
     
+    <!-- Load startup script before everything else -->
+    <script src="%PUBLIC_URL%/startup.js"></script>
+    
+    <!-- Fix CORS issues by not loading Google Analytics -->
+    <script>
+      // Block analytics to avoid CORS errors
+      window.ga = function() {};
+      window.gtag = function() {};
+    </script>
+    
     <!-- Preconnect to API domain to improve performance -->
     <link rel="preconnect" href="https://api.bhaujanvypar.com" />
     
@@ -79,6 +89,12 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    
+    <!-- Add CORS warning message -->
+    <div id="cors-warning" style="display:none; background: #ff9800; color: white; padding: 10px; text-align:center; position: fixed; top: 0; left: 0; right: 0; z-index: 10000;">
+      API connectivity issues detected. The app is running in offline mode.
+    </div>
+    
     <div id="root">
       <!-- Loading screen that shows before React loads -->
       <div class="app-loading">
@@ -89,5 +105,12 @@
         <div class="app-loading-text">Loading application...</div>
       </div>
     </div>
+    
+    <script>
+      // Show CORS warning if we're in offline mode
+      if (localStorage.getItem('forceOfflineMode') === 'true') {
+        document.getElementById('cors-warning').style.display = 'block';
+      }
+    </script>
   </body>
 </html>
