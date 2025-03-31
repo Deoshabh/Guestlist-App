@@ -28,7 +28,8 @@
     "react/react-in-jsx-scope": "off",
     "no-unused-vars": "warn",
     "react/no-unescaped-entities": "warn",
-    "import/no-anonymous-default-export": "warn"
+    // Completely turn off the rule causing the "Definition not found" error
+    "import/no-anonymous-default-export": "off"
   },
   "settings": {
     "react": {

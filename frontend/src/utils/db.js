@@ -165,7 +165,8 @@ const removePendingAction = async (id) => {
   });
 };
 
-export default {
+// Define a named const before exporting to avoid anonymous default export warning
+const dbOperations = {
   getAllGuests,
   saveGuests,
   saveGuest,
@@ -173,3 +174,5 @@ export default {
   getPendingActions,
   removePendingAction
 };
+
+export default dbOperations;

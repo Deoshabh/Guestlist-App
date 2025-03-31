@@ -66,7 +66,8 @@ const vibrate = (pattern) => {
   return false;
 };
 
-export default {
+// Define a named const before exporting to avoid anonymous default export warning
+const hapticFeedback = {
   isVibrationSupported,
   lightFeedback,
   mediumFeedback,
@@ -75,3 +76,5 @@ export default {
   successFeedback,
   vibrate
 };
+
+export default hapticFeedback;

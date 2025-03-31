@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import * as serviceWorkerRegistration from '../serviceWorkerRegistration';
 import haptic from '../utils/haptic';
