@@ -10,6 +10,10 @@ RUN npm install
 # Copy app source code
 COPY . .
 
+# Add verification step before build
+RUN ls -la /app/src && \
+    test -f /app/src/reportWebVitals.js || echo "ERROR: reportWebVitals.js is missing!"
+
 # Build the app - setting CI=false to prevent treating warnings as errors
 ENV CI=false
 RUN npm run build
