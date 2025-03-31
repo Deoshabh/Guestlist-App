@@ -1,4 +1,6 @@
 import React, { Component } from 'react';
+import { isMobileDevice, isPWAMode } from '../utils/mobileCompatibility';
+import haptic from '../utils/haptic';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -33,6 +35,9 @@ class ErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     // Enhanced error logging
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    
+    // Trigger haptic feedback to notify user
+    haptic.errorFeedback();
     
     // Detect if error is related to mobile/PWA issues
     const isPWAError = error.message && (
@@ -174,12 +179,16 @@ class ErrorBoundary extends Component {
   
   cleanupEventListeners() {
     try {
-      // We can't remove specific listeners, but we can replace the handlers
-      // with empty functions for problematic event types
-      const safeListener = () => {};
-      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
-        window.addEventListener(type, safeListener, { capture: true });
-      });
+      // Use the function from mobileCompatibility if available
+      if (typeof window.__cleanupErrorListeners === 'function') {
+        window.__cleanupErrorListeners();
+      } else {
+        // Fallback if not available
+        const safeListener = () => {};
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
+          window.addEventListener(type, safeListener, { capture: true });
+        });
+      }
       
       console.log('Replaced potentially problematic event listeners');
     } catch (e) {
@@ -194,6 +203,13 @@ class ErrorBoundary extends Component {
       errorInfo: null, 
       isMobileError: false 
     });
+    
+    // Add haptic feedback when trying again
+    haptic.mediumFeedback();
+  }
+
+  isMobileDevice() {
+    return isMobileDevice();
   }
 
   render() {

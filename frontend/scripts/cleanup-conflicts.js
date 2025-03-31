@@ -20,12 +20,6 @@ const potentiallyUnnecessaryFiles = [
     reason: 'Documentation file that\'s not needed in production'
   },
   
-  // Potentially conflicting recovery mechanisms
-  {
-    path: 'src/utils/mobileRecovery.js',
-    reason: 'Functionality exists in mobileCompatibility.js'
-  },
-  
   // Service worker utilities that may be redundant
   {
     path: 'public/generateIcons.js',

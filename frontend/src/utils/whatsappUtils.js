@@ -1,5 +1,5 @@
 /**
- * Utility functions for WhatsApp message handling
+ * Utilities for WhatsApp message handling and URL generation
  */
 
 /**
@@ -80,53 +80,123 @@ export const formatMessageWithPlaceholders = (messageTemplate, guest, options = 
 };
 
 /**
- * Generate a WhatsApp API URL for sending a message
- * 
- * @param {Object} guest - The guest to send the message to
- * @param {string} messageTemplate - The message template with placeholders
- * @param {Object} options - Additional options
- * @returns {string} WhatsApp API URL for opening chat with prefilled message
+ * Generate a WhatsApp URL for opening directly in the app/web
+ * @param {string} phone - Phone number to message (should not include the + prefix)
+ * @param {string} message - Message text, will be URL encoded
+ * @returns {string} WhatsApp URL
  */
-export const generateWhatsAppURL = (guest, messageTemplate, options = {}) => {
-  if (!guest || !guest.phone) return null;
+export const generateWhatsAppUrl = (phone, message = '') => {
+  // Normalize phone number - remove spaces, dashes, brackets, and +
+  const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
   
-  const formattedPhone = formatPhoneForWhatsApp(guest.phone);
-  const personalizedMessage = formatMessageWithPlaceholders(messageTemplate, guest, options);
+  // URL encode the message
+  const encodedMessage = encodeURIComponent(message);
   
-  // Encode the message for a URL
-  const encodedMessage = encodeURIComponent(personalizedMessage);
-  
-  // Generate the WhatsApp API URL
-  return `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedMessage}`;
+  return `https://wa.me/${normalizedPhone}?text=${encodedMessage}`;
 };
 
 /**
- * Open WhatsApp with a prepared message
- * 
- * @param {Object} guest - The guest to send a message to
- * @param {string} messageTemplate - The message template
+ * Open WhatsApp chat with given phone number and message
+ * @param {string|Object} recipient - Phone number or guest object
+ * @param {string} messageTemplate - Message template with placeholders: {{name}}, {{phone}}, etc
  * @param {Object} options - Additional options
- * @returns {boolean} True if successful, false otherwise
+ * @returns {boolean} Success status
  */
-export const openWhatsAppChat = (guest, messageTemplate, options = {}) => {
+export const openWhatsAppChat = (recipient, messageTemplate = '', options = {}) => {
   try {
-    if (!guest || !guest.phone) {
-      console.error('Cannot open WhatsApp: Guest has no phone number');
-      return false;
+    let phone, message;
+    
+    // Handle recipient as guest object
+    if (typeof recipient === 'object') {
+      const { name, phone: guestPhone } = recipient;
+      
+      if (!guestPhone) {
+        console.error('No phone number found for guest', recipient);
+        return false;
+      }
+      
+      phone = guestPhone;
+      
+      // Replace placeholders in template
+      message = messageTemplate.replace(/{{name}}/g, name || 'Guest')
+                              .replace(/{{phone}}/g, guestPhone || '')
+                              .replace(/{{email}}/g, recipient.email || '');
+      
+      // Handle additional fields if provided
+      if (recipient.groupId && options.guestGroups) {
+        const group = options.guestGroups.find(g => g._id === recipient.groupId);
+        if (group) {
+          message = message.replace(/{{group}}/g, group.name || 'Unknown Group');
+        }
+      }
+    } else {
+      // Handle recipient as plain phone number
+      phone = recipient;
+      message = messageTemplate;
     }
     
-    const whatsappURL = generateWhatsAppURL(guest, messageTemplate, options);
+    // Generate and open URL
+    const whatsappUrl = generateWhatsAppUrl(phone, message);
+    window.open(whatsappUrl, '_blank');
     
-    if (!whatsappURL) {
-      console.error('Failed to generate WhatsApp URL');
-      return false;
-    }
-    
-    // Open in a new tab
-    window.open(whatsappURL, '_blank');
     return true;
   } catch (error) {
     console.error('Error opening WhatsApp chat:', error);
     return false;
   }
+};
+
+/**
+ * Format a phone number for display
+ * @param {string} phone - Raw phone number
+ * @returns {string} Formatted phone number
+ */
+export const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  
+  // Remove non-numeric characters
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Check if it's valid
+  if (cleaned.length < 10) return phone;
+  
+  // Format based on length
+  if (cleaned.length === 10) {
+    // US format: (xxx) xxx-xxxx
+    return `(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6, 10)}`;
+  } else if (cleaned.length > 10) {
+    // International format
+    const countryCode = cleaned.substring(0, cleaned.length - 10);
+    const areaCode = cleaned.substring(cleaned.length - 10, cleaned.length - 7);
+    const firstPart = cleaned.substring(cleaned.length - 7, cleaned.length - 4);
+    const lastPart = cleaned.substring(cleaned.length - 4);
+    
+    return `+${countryCode} (${areaCode}) ${firstPart}-${lastPart}`;
+  }
+  
+  return phone;
+};
+
+/**
+ * Check if a phone number is valid
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} Is valid
+ */
+export const isValidPhoneNumber = (phone) => {
+  if (!phone) return false;
+  
+  // Remove formatting
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Basic validation - at least 10 digits
+  return cleaned.length >= 10;
+};
+
+export default {
+  formatPhoneForWhatsApp,
+  formatMessageWithPlaceholders,
+  generateWhatsAppUrl,
+  openWhatsAppChat,
+  formatPhoneNumber,
+  isValidPhoneNumber
 };

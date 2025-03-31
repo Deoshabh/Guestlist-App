@@ -1,97 +1,109 @@
 /**
- * Haptic feedback utility for tactile feedback on user interactions
+ * Utility for providing haptic feedback on actions
+ * Falls back gracefully when browser doesn't support vibration API
  */
 
-// Check if the vibration API is available
-const hasVibration = 'vibrate' in navigator;
-
-// Vibration patterns in milliseconds
-const patterns = {
-  light: [10],
-  medium: [20],
-  heavy: [30],
-  success: [10, 30, 10],
-  error: [50, 20, 50],
-  warning: [20, 10, 20, 10],
-  doubleLight: [10, 30, 10],
-  triple: [10, 30, 10, 30, 10],
+// Check if vibration API is supported
+const hasVibrationSupport = () => {
+  return 'vibrate' in navigator;
 };
 
-/**
- * Apply haptic feedback
- * @param {Array|number} pattern - Vibration pattern in milliseconds
- */
+// Vibration patterns
+const VIBRATION_PATTERNS = {
+  LIGHT: 10,
+  MEDIUM: 25,
+  ERROR: [30, 50, 30],
+  SUCCESS: [20, 40, 60],
+  WARNING: [40, 30, 40]
+};
+
+// Trigger vibration with pattern
 const vibrate = (pattern) => {
-  if (hasVibration) {
-    navigator.vibrate(pattern);
+  if (hasVibrationSupport() && !localStorage.getItem('haptic_disabled')) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (error) {
+      console.warn('Failed to trigger haptic feedback:', error);
+    }
   }
 };
 
 /**
- * Light haptic feedback (small tap)
+ * Light feedback for simple interactions like selections
  */
 const lightFeedback = () => {
-  vibrate(patterns.light);
+  vibrate(VIBRATION_PATTERNS.LIGHT);
 };
 
 /**
- * Medium haptic feedback
+ * Medium feedback for confirming actions
  */
 const mediumFeedback = () => {
-  vibrate(patterns.medium);
+  vibrate(VIBRATION_PATTERNS.MEDIUM);
 };
 
 /**
- * Heavy haptic feedback
- */
-const heavyFeedback = () => {
-  vibrate(patterns.heavy);
-};
-
-/**
- * Success haptic feedback pattern
- */
-const successFeedback = () => {
-  vibrate(patterns.success);
-};
-
-/**
- * Error haptic feedback pattern
+ * Error feedback for when something goes wrong
  */
 const errorFeedback = () => {
-  vibrate(patterns.error);
+  vibrate(VIBRATION_PATTERNS.ERROR);
 };
 
 /**
- * Warning haptic feedback pattern
+ * Success feedback for completed actions
+ */
+const successFeedback = () => {
+  vibrate(VIBRATION_PATTERNS.SUCCESS);
+};
+
+/**
+ * Warning feedback
  */
 const warningFeedback = () => {
-  vibrate(patterns.warning);
+  vibrate(VIBRATION_PATTERNS.WARNING);
 };
 
 /**
- * Double tap feedback pattern
+ * Disable all haptic feedback
  */
-const doubleFeedback = () => {
-  vibrate(patterns.doubleLight);
+const disableHaptics = () => {
+  localStorage.setItem('haptic_disabled', 'true');
 };
 
 /**
- * Triple tap feedback pattern
+ * Enable haptic feedback
  */
-const tripleFeedback = () => {
-  vibrate(patterns.triple);
+const enableHaptics = () => {
+  localStorage.removeItem('haptic_disabled');
 };
 
-// Export haptic feedback functions
+/**
+ * Check if haptics are currently enabled
+ */
+const isHapticsEnabled = () => {
+  return !localStorage.getItem('haptic_disabled');
+};
+
+/**
+ * Toggle haptic feedback on/off
+ */
+const toggleHaptics = () => {
+  if (isHapticsEnabled()) {
+    disableHaptics();
+  } else {
+    enableHaptics();
+  }
+  return isHapticsEnabled();
+};
+
 export default {
   lightFeedback,
   mediumFeedback,
-  heavyFeedback,
-  successFeedback,
   errorFeedback,
+  successFeedback,
   warningFeedback,
-  doubleFeedback,
-  tripleFeedback,
-  vibrate
+  isHapticsEnabled,
+  enableHaptics,
+  disableHaptics,
+  toggleHaptics
 };

@@ -1,5 +1,6 @@
 /**
  * Utility functions to improve mobile device compatibility
+ * This file consolidates functionality previously split between mobileCompatibility.js and mobileRecovery.js
  */
 
 // Apply runtime patches to fix common mobile-specific issues
@@ -15,6 +16,9 @@ export function applyMobilePatches() {
   
   // Fix event propagation issues on mobile
   fixEventBubbling();
+  
+  // Apply recovery patches for common mobile issues
+  applyRecoveryPatches();
   
   console.log('Mobile compatibility patches applied');
 }
@@ -159,6 +163,34 @@ function fixEventBubbling() {
   }
 }
 
+// Add recovery functionality that was previously in mobileRecovery.js
+function applyRecoveryPatches() {
+  try {
+    // Register global error handler for recoverable mobile errors
+    window.__cleanupErrorListeners = function() {
+      console.log('Cleaning up problematic event listeners');
+      
+      const safeListener = () => {};
+      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
+        window.addEventListener(type, safeListener, { capture: true });
+      });
+    };
+    
+    // Add recovery function for mobile crashes
+    window.attemptRecovery = function() {
+      console.log('Attempting auto-recovery for mobile issues');
+      
+      // Re-apply protections
+      protectArrayMethods();
+      enhanceTouchEvents();
+      
+      return true;
+    };
+  } catch (error) {
+    console.error('Error applying recovery patches:', error);
+  }
+}
+
 // Helper to detect if rendering on a mobile device
 export function isMobileDevice() {
   return (
@@ -229,9 +261,159 @@ export function toggleDesktopView() {
   }
 }
 
+// Check if device is likely a touch device
+export const isTouchDevice = () => {
+  return ('ontouchstart' in window) || 
+    (navigator.maxTouchPoints > 0) || 
+    (navigator.msMaxTouchPoints > 0);
+};
+
+// Fix for iOS Safari touch event delay
+export const fixTouchDelay = () => {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('touchstart', function() {}, {passive: true});
+  }
+};
+
+// Apply fixes for mobile compatibility
+export const applyMobileFixes = () => {
+  // Only apply if we're in a browser environment
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // Fix for iOS touch delay
+    fixTouchDelay();
+    
+    // Fix for mobile viewport height issues (iOS Safari address bar)
+    fixMobileViewportHeight();
+    
+    // Fix for double tap zoom on mobile
+    fixDoubleTapZoom();
+    
+    // Fix for swipe gesture handlers
+    protectSwipeGestures();
+    
+    // Fix event bubbling issues on mobile
+    fixEventBubbling();
+    
+    // Add CSS touch-action to improve scrolling
+    addTouchActionCSS();
+    
+    console.log('Applied mobile compatibility fixes');
+  } catch (error) {
+    console.error('Error applying mobile fixes:', error);
+  }
+};
+
+// Fix for mobile viewport height issues (iOS Safari address bar)
+function fixMobileViewportHeight() {
+  try {
+    // Fix iOS viewport height issue
+    const appHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    
+    window.addEventListener('resize', appHeight);
+    window.addEventListener('orientationchange', appHeight);
+    appHeight();
+  } catch (error) {
+    console.error('Error fixing mobile viewport height:', error);
+  }
+}
+
+// Fix for double tap zoom on mobile
+function fixDoubleTapZoom() {
+  try {
+    // Add CSS for touch-action
+    const style = document.createElement('style');
+    style.innerHTML = `
+      /* Prevent double-tap zoom */
+      button, 
+      a,
+      input[type="button"],
+      input[type="submit"],
+      input[type="reset"],
+      [role="button"],
+      .touch-manipulation {
+        touch-action: manipulation;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (error) {
+    console.error('Error fixing double tap zoom:', error);
+  }
+}
+
+// Fix touch action CSS for improved scrolling
+function addTouchActionCSS() {
+  try {
+    // Create a style element
+    const style = document.createElement('style');
+    style.innerHTML = `
+      /* Improvements for touch interactions */
+      body {
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .scrollable {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Allow vertical scrolling but prevent horizontal */
+      .scroll-y {
+        touch-action: pan-y;
+        -ms-touch-action: pan-y;
+      }
+      
+      /* Allow horizontal scrolling but prevent vertical */
+      .scroll-x {
+        touch-action: pan-x;
+        -ms-touch-action: pan-x;
+      }
+      
+      /* Improve touch target sizes */
+      button,
+      .btn,
+      [role="button"],
+      input[type="checkbox"],
+      input[type="radio"],
+      input[type="button"],
+      input[type="submit"],
+      select,
+      a {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      /* Safe area insets for newer iOS/Android devices */
+      .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+      }
+      
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (error) {
+    console.error('Error adding touch action CSS:', error);
+  }
+}
+
+// Automatically apply mobile fixes when imported
+applyMobileFixes();
+
 export default {
   applyMobilePatches,
   isMobileDevice,
   isPWAMode,
-  toggleDesktopView
+  toggleDesktopView,
+  // Export recovery functions that might have been used from mobileRecovery.js
+  attemptRecovery: window.attemptRecovery,
+  cleanupErrorListeners: window.__cleanupErrorListeners,
+  isTouchDevice,
+  fixTouchDelay,
+  applyMobileFixes
 };

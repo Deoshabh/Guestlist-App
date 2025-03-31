@@ -19,7 +19,10 @@ function GuestForm({
     email: '', // New field
     phone: '', // New field
     invited: false,
-    groupId: selectedGroup ? selectedGroup._id : ''
+    groupId: selectedGroup ? selectedGroup._id : '',
+    firstName: '', // Add firstName field
+    lastName: '',  // Add lastName field
+    notes: ''      // Add notes field
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,24 +40,37 @@ function GuestForm({
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // If setting phone or email, we also update 'contact' if it's empty
-    if (name === 'phone' && (!formData.contact || formData.contact === formData.email)) {
+    if (name === 'firstName' || name === 'lastName') {
+      // When firstName or lastName changes, update name field as well
+      const newFirstName = name === 'firstName' ? value : formData.firstName;
+      const newLastName = name === 'lastName' ? value : formData.lastName;
+      const fullName = `${newFirstName} ${newLastName}`.trim();
+      
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        contact: value // Update contact to match the phone
-      }));
-    } else if (name === 'email' && !formData.contact && !formData.phone) {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        contact: value // Use email as contact if no phone
+        name: fullName
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      // If setting phone or email, we also update 'contact' if it's empty
+      if (name === 'phone' && (!formData.contact || formData.contact === formData.email)) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          contact: value // Update contact to match the phone
+        }));
+      } else if (name === 'email' && !formData.contact && !formData.phone) {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          contact: value // Use email as contact if no phone
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: type === 'checkbox' ? checked : value
+        }));
+      }
     }
   };
 
@@ -76,7 +92,8 @@ function GuestForm({
       email: formData.email?.trim(), // Include new fields
       phone: formData.phone?.trim(), // Include new fields
       invited: formData.invited,
-      groupId: formData.groupId || (selectedGroup ? selectedGroup._id : '')
+      groupId: formData.groupId || (selectedGroup ? selectedGroup._id : ''),
+      notes: formData.notes?.trim() // Add notes field
     };
     
     // If onAddMultiple is provided, we're in multi-guest mode
@@ -91,7 +108,10 @@ function GuestForm({
         email: '',
         phone: '',
         invited: false,
-        groupId: selectedGroup ? selectedGroup._id : ''
+        groupId: selectedGroup ? selectedGroup._id : '',
+        firstName: '',
+        lastName: '',
+        notes: ''
       });
       
       setLoading(false);
@@ -141,7 +161,10 @@ function GuestForm({
         email: '',
         phone: '',
         invited: false,
-        groupId: selectedGroup ? selectedGroup._id : ''
+        groupId: selectedGroup ? selectedGroup._id : '',
+        firstName: '',
+        lastName: '',
+        notes: ''
       });
       onGuestAdded();
     } catch (err) {
@@ -175,24 +198,62 @@ function GuestForm({
       )}
       
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="col-span-1">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Name*
+        {/* First and Last Name fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              First Name*
             </label>
             <input 
-              id="name"
-              name="name"
+              id="firstName"
+              name="firstName"
               type="text"
-              placeholder="Guest name"
-              value={formData.name}
+              placeholder="First name"
+              value={formData.firstName}
               onChange={handleChange}
               required
               disabled={loading}
               className="input w-full"
             />
           </div>
-          
+          <div>
+            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Last Name
+            </label>
+            <input 
+              id="lastName"
+              name="lastName"
+              type="text"
+              placeholder="Last name"
+              value={formData.lastName}
+              onChange={handleChange}
+              disabled={loading}
+              className="input w-full"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Full Name*
+          </label>
+          <input 
+            id="fullName"
+            name="name"
+            type="text"
+            placeholder="Full name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            className="input w-full"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            This will be automatically filled from first and last name fields.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="col-span-1">
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Phone
@@ -280,6 +341,22 @@ function GuestForm({
               )}
             </div>
             
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                value={formData.notes}
+                onChange={handleChange}
+                disabled={loading}
+                className="input w-full"
+                placeholder="Additional notes about this guest"
+              />
+            </div>
+
             {/* Contact field for backward compatibility */}
             <div>
               <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -327,7 +404,10 @@ function GuestForm({
               email: '',
               phone: '',
               invited: false,
-              groupId: selectedGroup ? selectedGroup._id : ''
+              groupId: selectedGroup ? selectedGroup._id : '',
+              firstName: '',
+              lastName: '',
+              notes: ''
             })}
             disabled={loading}
             className="btn btn-outline touch-manipulation"

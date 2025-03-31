@@ -10,7 +10,10 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     email: '',  // Add email field
     phone: '',  // Add phone field
     invited: false,
-    groupId: ''
+    groupId: '',
+    firstName: '', // Add firstName field from guest version
+    lastName: '',  // Add lastName field from guest version
+    notes: ''      // Add notes field from guest version
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,13 +29,26 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   // Initialize the form values when the guest prop changes
   useEffect(() => {
     if (guest) {
+      // Extract first/last name from name field if available
+      let firstName = '', lastName = '';
+      if (guest.name && guest.name.includes(' ')) {
+        const nameParts = guest.name.split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      } else {
+        firstName = guest.name || '';
+      }
+
       setFormData({
         name: guest.name || '',
         contact: guest.contact || '',
         email: guest.email || '',  // Initialize email
         phone: guest.phone || '',  // Initialize phone
         invited: guest.invited || false,
-        groupId: guest.groupId || ''
+        groupId: guest.groupId || '',
+        firstName,
+        lastName,
+        notes: guest.notes || ''
       });
       setNameError('');
     }
@@ -124,8 +140,18 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // Handle special case for phone and email
-    if (name === 'phone' && (!formData.contact || formData.contact === formData.email)) {
+    if (name === 'firstName' || name === 'lastName') {
+      // When firstName or lastName changes, update name field as well
+      const newFirstName = name === 'firstName' ? value : formData.firstName;
+      const newLastName = name === 'lastName' ? value : formData.lastName;
+      const fullName = `${newFirstName} ${newLastName}`.trim();
+      
+      setFormData({
+        ...formData, 
+        [name]: value,
+        name: fullName
+      });
+    } else if (name === 'phone' && (!formData.contact || formData.contact === formData.email)) {
       setFormData({
         ...formData, 
         [name]: value,
@@ -172,7 +198,8 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
       email: formData.email?.trim(),  // Include email in update
       phone: formData.phone?.trim(),  // Include phone in update
       invited: formData.invited,
-      groupId: formData.groupId || null
+      groupId: formData.groupId || null,
+      notes: formData.notes || ''  // Include notes field
     };
     
     // Check if online
@@ -329,9 +356,45 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
             )}
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* First and Last Name fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="edit-firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    First Name*
+                  </label>
+                  <input 
+                    id="edit-firstName"
+                    name="firstName"
+                    type="text"
+                    placeholder="First name"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                    className="input w-full h-12 text-base"
+                    ref={nameInputRef}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Last Name
+                  </label>
+                  <input 
+                    id="edit-lastName"
+                    name="lastName"
+                    type="text"
+                    placeholder="Last name"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="input w-full h-12 text-base"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Name*
+                  Full Name*
                 </label>
                 <input 
                   id="edit-name"
@@ -463,6 +526,22 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
                     No groups available. Create a group first.
                   </p>
                 )}
+              </div>
+              
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  rows={3}
+                  value={formData.notes}
+                  onChange={handleChange}
+                  className="input w-full"
+                  disabled={loading}
+                  placeholder="Additional notes about this guest"
+                />
               </div>
               
               <div className="flex items-center">
