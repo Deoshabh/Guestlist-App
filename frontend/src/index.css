@@ -277,3 +277,72 @@ code {
     opacity: 0;
   }
 }
+
+/* Mobile responsiveness improvements */
+
+/* Fix viewport issues on mobile */
+@viewport {
+  width: device-width;
+  initial-scale: 1;
+}
+
+/* Better handling for notched phones */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Improved touch targets for mobile */
+@media (max-width: 768px) {
+  button, 
+  .btn, 
+  input[type="checkbox"], 
+  input[type="radio"],
+  .input,
+  select {
+    min-height: 44px; /* Apple's recommended minimum touch target size */
+  }
+  
+  /* Prevent text from becoming too small */
+  body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  /* Fix for inputs zooming in Safari on iOS */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  
+  /* Improve table rendering on small screens */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Better card layouts on small screens */
+  .card {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  /* Fix modal positioning on mobile */
+  .fixed {
+    position: fixed !important;
+  }
+  
+  /* Prevent content from being hidden behind fixed navbars */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 70px);
+  }
+}
+
+/* Fix for iOS momentum scrolling */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;
+}

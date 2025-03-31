@@ -38,6 +38,7 @@ export const safeJsonParse = (data, defaultValue = null) => {
 // Safely execute a function with fallback value on error
 export const safeExecute = (fn, fallbackValue = null, ...args) => {
   try {
+    if (typeof fn !== 'function') return fallbackValue;
     return fn(...args);
   } catch (error) {
     console.error('Error executing function:', error);
@@ -45,8 +46,20 @@ export const safeExecute = (fn, fallbackValue = null, ...args) => {
   }
 };
 
+// New helper to detect null objects before accessing properties
+export const safeProp = (obj, prop, defaultValue = null) => {
+  try {
+    if (!obj || typeof obj !== 'object') return defaultValue;
+    return obj[prop] !== undefined ? obj[prop] : defaultValue;
+  } catch (error) {
+    console.error(`Error accessing prop ${prop}:`, error);
+    return defaultValue;
+  }
+};
+
 export default {
   get: safeGet,
   jsonParse: safeJsonParse,
-  execute: safeExecute
+  execute: safeExecute,
+  prop: safeProp
 };
