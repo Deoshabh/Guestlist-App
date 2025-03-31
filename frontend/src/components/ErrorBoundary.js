@@ -47,9 +47,14 @@ export default ErrorBoundary;
 
 // Also export a HOC for components that might use it
 export const withErrorBoundary = (WrappedComponent) => {
-  return (props) => (
+  const WithErrorBoundary = (props) => (
     <ErrorBoundary>
       <WrappedComponent {...props} />
     </ErrorBoundary>
   );
+  
+  // Set display name for the wrapped component
+  WithErrorBoundary.displayName = `WithErrorBoundary(${WrappedComponent.displayName || WrappedComponent.name || 'Component'})`;
+  
+  return WithErrorBoundary;
 };
