@@ -15,21 +15,34 @@ import './App.css';
 import db from './utils/db';
 import syncManager from './utils/syncManager';
 import haptic from './utils/haptic';
+import analytics from './utils/analytics';
 
 // Utility to detect mobile devices
 const isMobileDevice = () => {
-  return (
-    window.innerWidth <= 768 ||
-    'ontouchstart' in window ||
-    navigator.maxTouchPoints > 0
-  );
+  try {
+    return (
+      window.innerWidth <= 768 ||
+      'ontouchstart' in window ||
+      navigator?.maxTouchPoints > 0
+    );
+  } catch (error) {
+    console.error('Error detecting mobile device:', error);
+    return false;
+  }
 };
 
 // Calculate stats from guest data
 const calculateStats = (guests) => {
-  const total = guests.filter((g) => !g.deleted).length;
-  const invited = guests.filter((g) => g.invited && !g.deleted).length;
-  return { total, invited, pending: total - invited };
+  try {
+    if (!Array.isArray(guests)) return { total: 0, invited: 0, pending: 0 };
+    
+    const total = guests.filter((g) => !g?.deleted).length;
+    const invited = guests.filter((g) => g?.invited && !g?.deleted).length;
+    return { total, invited, pending: total - invited };
+  } catch (error) {
+    console.error('Error calculating stats:', error);
+    return { total: 0, invited: 0, pending: 0 };
+  }
 };
 
 function App() {
@@ -53,61 +66,97 @@ function App() {
 
   // Set axios base URL
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') {
-      axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
+      }
+      axios.interceptors.request.use(
+        (config) => {
+          if (!navigator.onLine && config.method !== 'get') {
+            throw new axios.Cancel('Currently offline. Request will be queued.');
+          }
+          return config;
+        },
+        (error) => Promise.reject(error)
+      );
+    } catch (error) {
+      console.error('Error setting up axios:', error);
     }
-    axios.interceptors.request.use(
-      (config) => {
-        if (!navigator.onLine && config.method !== 'get') {
-          throw new axios.Cancel('Currently offline. Request will be queued.');
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
   }, []);
 
   // Handle dark mode
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('darkMode', darkMode);
+    try {
+      document.documentElement.classList.toggle('dark', darkMode);
+      localStorage.setItem('darkMode', darkMode);
+      
+      // Log dark mode change to analytics
+      analytics.event('Settings', 'Toggle Dark Mode', darkMode ? 'On' : 'Off');
+    } catch (error) {
+      console.error('Error setting dark mode:', error);
+    }
   }, [darkMode]);
 
   // Handle online/offline status
   useEffect(() => {
     const handleOnline = () => {
-      setIsOnline(true);
-      setError(null);
-      haptic.successFeedback();
-      fetchGuests();
+      try {
+        setIsOnline(true);
+        setError(null);
+        haptic?.successFeedback();
+        fetchGuests();
+        analytics.event('Network', 'Status Change', 'Online');
+      } catch (error) {
+        console.error('Error handling online status:', error);
+      }
     };
+    
     const handleOffline = () => {
-      setIsOnline(false);
-      haptic.errorFeedback();
-      setError('You are currently offline. Changes will sync when you reconnect.');
+      try {
+        setIsOnline(false);
+        haptic?.errorFeedback();
+        setError('You are currently offline. Changes will sync when you reconnect.');
+        analytics.event('Network', 'Status Change', 'Offline');
+      } catch (error) {
+        console.error('Error handling offline status:', error);
+      }
     };
+    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     if ('connection' in navigator) {
-      const connection = navigator.connection;
-      setNetworkStatus({
-        type: connection.type || 'unknown',
-        effectiveType: connection.effectiveType || 'unknown',
-      });
-      connection.addEventListener('change', () => {
+      try {
+        const connection = navigator.connection;
         setNetworkStatus({
-          type: connection.type || 'unknown',
-          effectiveType: connection.effectiveType || 'unknown',
+          type: connection?.type || 'unknown',
+          effectiveType: connection?.effectiveType || 'unknown',
         });
-      });
+        
+        connection?.addEventListener('change', () => {
+          try {
+            setNetworkStatus({
+              type: connection?.type || 'unknown',
+              effectiveType: connection?.effectiveType || 'unknown',
+            });
+          } catch (error) {
+            console.error('Error updating network status:', error);
+          }
+        });
+      } catch (error) {
+        console.error('Error setting up connection monitoring:', error);
+      }
     }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if ('connection' in navigator) {
-        navigator.connection.removeEventListener('change', () => {});
+        try {
+          navigator.connection?.removeEventListener('change', () => {});
+        } catch (error) {
+          console.error('Error removing connection listener:', error);
+        }
       }
     };
   }, []); // Note: fetchGuests omitted from deps to avoid circular dependency
@@ -314,11 +363,20 @@ function App() {
     >
       <PullToRefresh
         onRefresh={() => {
-          haptic.mediumFeedback(); 
-          return fetchGuests().then(() => {
-            toast.success('Data refreshed');
-            return Promise.resolve();
-          });
+          try {
+            haptic?.mediumFeedback(); 
+            return fetchGuests().then(() => {
+              toast?.success('Data refreshed');
+              return Promise.resolve();
+            }).catch(error => {
+              console.error('Refresh error:', error);
+              toast?.error('Failed to refresh data');
+              return Promise.reject(error);
+            });
+          } catch (error) {
+            console.error('Error in PullToRefresh:', error);
+            return Promise.reject(error);
+          }
         }}
         disabled={!isMobile}
       >

@@ -1,7 +1,7 @@
 {
   "id": "guest-manager-pwa",
   "short_name": "Guest Manager",
-  "name": "Guest Management Application",
+  "name": "Guest List Manager",
   "description": "Manage your guest list, with offline capabilities and seamless offline/online synchronization",
   "icons": [
     {
@@ -14,31 +14,19 @@
       "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "logo512.png",
       "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "maskable"
-    },
-    {
-      "src": "logo512.svg",
-      "type": "image/svg+xml",
       "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
-      "src": "logo512.svg",
-      "type": "image/svg+xml",
-      "sizes": "512x512",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "display_override": ["window-controls-overlay"],
-  "theme_color": "#3b82f6",
+  "theme_color": "#4F46E5",
   "background_color": "#ffffff",
   "orientation": "portrait-primary",
   "dir": "ltr",

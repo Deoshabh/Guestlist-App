@@ -13,11 +13,12 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "CI=false GENERATE_SOURCEMAP=false react-scripts build",
-    "build:windows": "set \"CI=false\" && set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
+    "build": "node scripts/generate-fallback-icons.js && CI=false GENERATE_SOURCEMAP=false react-scripts build",
+    "build:windows": "node scripts/generate-fallback-icons.js && set \"CI=false\" && set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "prebuild": "node scripts/verify-build.js"
+    "prebuild": "node scripts/verify-build.js",
+    "postbuild": "node scripts/remove-source-maps.js"
   },
   "eslintConfig": {
     "extends": [
