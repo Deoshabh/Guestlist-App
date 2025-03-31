@@ -7,37 +7,66 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Guest Management Application" />
 
-    <!-- Load startup script before everything else -->
-    <script src="/startup.js"></script>
+    <!-- Preload critical icons to avoid 404 errors -->
+    <link rel="preload" as="image" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="preload" as="image" href="%PUBLIC_URL%/logo512.png" />
 
-    <!-- Block analytics to avoid CORS errors -->
+    <!-- Inline fallback for icons if they fail to load -->
     <script>
-      // Block analytics requests to prevent console errors
-      window.ga = function() {};
-      window.gtag = function() {};
-      
-      // Handle icon loading errors
+      // Simple error handler for icons
       window.addEventListener('error', function(e) {
-        if (e.target.tagName === 'LINK' && e.target.rel === 'icon' || e.target.rel === 'apple-touch-icon') {
-          // Prevent error propagation
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // Try to use fallback icon
-          var iconSize = e.target.sizes ? e.target.sizes.value.split('x')[0] : '192';
-          e.target.href = '/logo' + iconSize + '.png.js';
-          return true;
+        if (e.target && (e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
+          if (e.target.href && e.target.href.includes('logo192.png')) {
+            console.log('Creating fallback for logo192.png');
+            createFallbackIcon(192);
+          }
+          if (e.target.href && e.target.href.includes('logo512.png')) {
+            console.log('Creating fallback for logo512.png');
+            createFallbackIcon(512);
+          }
         }
       }, true);
+
+      // Create a fallback icon when needed
+      function createFallbackIcon(size) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          
+          // Blue background
+          ctx.fillStyle = '#3b82f6';
+          ctx.fillRect(0, 0, size, size);
+          
+          // Text
+          ctx.fillStyle = 'white';
+          ctx.font = (size/4) + 'px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('GM', size/2, size/2);
+          
+          // Replace all icons with this one
+          const dataUrl = canvas.toDataURL('image/png');
+          document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => {
+            if (link.href && link.href.includes('logo' + size + '.png')) {
+              link.href = dataUrl;
+            }
+          });
+        } catch(e) {
+          console.error('Failed to create fallback icon:', e);
+        }
+      }
+
+      // Block Google Analytics to prevent console errors
+      window.ga = function() {};
+      window.gtag = function() {};
     </script>
 
-    <!-- Preconnect to API domain to improve performance -->
-    <link rel="preconnect" href="https://api.bhaujanvypar.com" />
-
-    <!-- Ensure icons are explicitly available with onerror handlers -->
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" onerror="this.onerror=null; this.href='/logo192.png.js';" />
-    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/logo192.png" onerror="this.onerror=null; this.href='/logo192.png.js';" />
-    <link rel="icon" type="image/png" sizes="512x512" href="%PUBLIC_URL%/logo512.png" onerror="this.onerror=null; this.href='/logo512.png.js';" />
+    <!-- Icons with direct fallbacks -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="%PUBLIC_URL%/logo512.png" />
 
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 

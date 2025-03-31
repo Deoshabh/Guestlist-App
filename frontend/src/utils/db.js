@@ -114,6 +114,66 @@ const openDB = () => {
   });
 };
 
+// Add these functions as standalone for direct imports
+export const saveContact = async (contact) => {
+  // Generate an ID if not provided
+  if (!contact._id) {
+    contact._id = `contact_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+  
+  // Add to memory cache
+  if (!memoryCache.contacts) {
+    memoryCache.contacts = [];
+  }
+  memoryCache.contacts.push(contact);
+  
+  try {
+    // Store in localStorage as fallback
+    try {
+      localStorage.setItem(`contact_${contact._id}`, JSON.stringify(contact));
+    } catch (err) {
+      console.warn('Failed to save contact to localStorage:', err);
+    }
+    
+    return contact;
+  } catch (err) {
+    console.error('Failed to save contact:', err);
+    return contact;
+  }
+};
+
+export const getContacts = async () => {
+  try {
+    // Return memory cache if available
+    if (memoryCache.contacts && memoryCache.contacts.length) {
+      return memoryCache.contacts;
+    }
+    
+    // Initialize contacts cache
+    memoryCache.contacts = [];
+    
+    // Look for contacts in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('contact_')) {
+        try {
+          const contact = JSON.parse(localStorage.getItem(key));
+          if (contact) {
+            memoryCache.contacts.push(contact);
+          }
+        } catch (err) {
+          console.warn('Failed to parse contact from localStorage:', err);
+        }
+      }
+    }
+    
+    return memoryCache.contacts;
+  } catch (err) {
+    console.error('Failed to get contacts:', err);
+    return [];
+  }
+};
+
 // Simple CRUD operations
 const dbOperations = {
   // Guest operations
@@ -493,70 +553,9 @@ const dbOperations = {
     }
   },
   
-  // Contact operations
-  saveContact: async (contact) => {
-    // Generate an ID if not provided
-    if (!contact._id) {
-      contact._id = `contact_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    }
-    
-    // Add to memory cache
-    if (!memoryCache.contacts) {
-      memoryCache.contacts = [];
-    }
-    memoryCache.contacts.push(contact);
-    
-    try {
-      // Try to save to IndexedDB if available
-      const db = await openDB();
-      if (!db) return contact;
-      
-      // Create contacts store if it doesn't exist during the next version upgrade
-      // For now, store in localStorage as fallback
-      try {
-        localStorage.setItem(`contact_${contact._id}`, JSON.stringify(contact));
-      } catch (err) {
-        console.warn('Failed to save contact to localStorage:', err);
-      }
-      
-      return contact;
-    } catch (err) {
-      console.error('Failed to save contact:', err);
-      return contact;
-    }
-  },
-  
-  getContacts: async () => {
-    try {
-      // Return memory cache as the source of truth for contacts
-      if (memoryCache.contacts) {
-        return memoryCache.contacts;
-      }
-      
-      // Try to get from localStorage as fallback
-      memoryCache.contacts = [];
-      
-      // Look for contacts in localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.startsWith('contact_')) {
-          try {
-            const contact = JSON.parse(localStorage.getItem(key));
-            if (contact) {
-              memoryCache.contacts.push(contact);
-            }
-          } catch (err) {
-            console.warn('Failed to parse contact from localStorage:', err);
-          }
-        }
-      }
-      
-      return memoryCache.contacts;
-    } catch (err) {
-      console.error('Failed to get contacts:', err);
-      return [];
-    }
-  },
+  // Reference contact operations in dbOperations
+  saveContact,
+  getContacts,
   
   // Helper functions
   transaction: async (mode, tables, callback) => {
@@ -621,11 +620,6 @@ const initDefaultData = async () => {
 
 // Initialize
 initDefaultData();
-
-// Export named functions for direct imports
-const saveContact = dbOperations.saveContact;
-const getContacts = dbOperations.getContacts;
-export { saveContact, getContacts };
 
 // Export the database operations
 export default dbOperations;
