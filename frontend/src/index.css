@@ -9,6 +9,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile browsers */
 }
 
 code {
@@ -20,6 +21,13 @@ code {
   /* Enable smooth scrolling for better UX */
   html {
     scroll-behavior: smooth;
+    height: 100%;
+  }
+  
+  /* Ensure full height for body and root */
+  body, #root {
+    min-height: 100%;
+    height: 100%;
   }
   
   /* Safe area for iOS devices */
@@ -30,6 +38,19 @@ code {
   /* Improve tap highlight color for mobile */
   * {
     -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  /* Fix for iOS inputs zooming */
+  @media (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
   
   /* Base scrolling improvements */
@@ -244,37 +265,55 @@ code {
     position: relative;
     overflow: hidden;
   }
-}
-
-/* New animations for enhanced UX */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes progressBar {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes pulseSubtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-@keyframes rippleAnimation {
-  from {
-    transform: scale(0);
-    opacity: 0.5;
+  
+  /* New animations for enhanced UX */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  to {
-    transform: scale(2);
-    opacity: 0;
+  
+  @keyframes progressBar {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+  
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes pulseSubtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  @keyframes rippleAnimation {
+    from {
+      transform: scale(0);
+      opacity: 0.5;
+    }
+    to {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .animate-slideUp {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+  
+  @keyframes slideDown {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .animate-slideDown {
+    animation: slideDown 0.3s ease-out forwards;
   }
 }
 
@@ -293,6 +332,14 @@ code {
 
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Improved touch targets for mobile */

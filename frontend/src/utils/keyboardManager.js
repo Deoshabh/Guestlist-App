@@ -27,47 +27,122 @@ export const detectKeyboardVisibility = (onShow, onHide) => {
   if (!window.visualViewport) return;
   
   let keyboardVisible = false;
+  let lastHeight = window.visualViewport.height;
   
   window.visualViewport.addEventListener('resize', () => {
-    // Check if the viewport height significantly decreased
-    const heightDiff = window.innerHeight - window.visualViewport.height;
+    const currentHeight = window.visualViewport.height;
     
-    if (heightDiff > 150 && !keyboardVisible) {
-      // Keyboard likely appeared
-      keyboardVisible = true;
-      onShow && onShow(heightDiff);
-    } else if (heightDiff < 150 && keyboardVisible) {
-      // Keyboard likely disappeared
-      keyboardVisible = false;
-      onHide && onHide();
+    // If the height significantly decreases, the keyboard is probably showing
+    if (lastHeight > currentHeight && lastHeight - currentHeight > 150) {
+      if (!keyboardVisible) {
+        keyboardVisible = true;
+        if (typeof onShow === 'function') {
+          onShow(currentHeight);
+        }
+      }
+    } 
+    // If the height significantly increases, the keyboard is probably hiding
+    else if (lastHeight < currentHeight && currentHeight - lastHeight > 150) {
+      if (keyboardVisible) {
+        keyboardVisible = false;
+        if (typeof onHide === 'function') {
+          onHide();
+        }
+      }
     }
+    
+    lastHeight = currentHeight;
   });
 };
 
-// Adjust content padding when keyboard shows
-export const adjustForKeyboard = (contentSelector) => {
-  detectKeyboardVisibility(
-    (keyboardHeight) => {
-      // Keyboard appeared
-      const contentEl = document.querySelector(contentSelector);
-      if (contentEl) {
-        // Add padding to avoid content being hidden behind keyboard
-        contentEl.style.paddingBottom = `${keyboardHeight}px`;
-      }
-    },
-    () => {
-      // Keyboard disappeared
-      const contentEl = document.querySelector(contentSelector);
-      if (contentEl) {
-        // Reset padding
-        contentEl.style.paddingBottom = '';
+// Implement fixes for iOS keyboard issues
+export const fixIOSKeyboardScrolling = () => {
+  if (!window.visualViewport) return;
+  
+  // Create a placeholder for focus target
+  const createFocusTarget = () => {
+    const target = document.createElement('input');
+    target.setAttribute('type', 'text');
+    target.style.position = 'absolute';
+    target.style.opacity = '0';
+    target.style.height = '0';
+    target.style.width = '0';
+    target.style.left = '-1000px';
+    target.style.top = '0';
+    target.id = 'keyboard-focus-target';
+    document.body.appendChild(target);
+    
+    return target;
+  };
+  
+  // Add listener for moving viewport when keyboard shows
+  window.visualViewport.addEventListener('resize', () => {
+    if (document.activeElement.tagName === 'INPUT' || 
+        document.activeElement.tagName === 'TEXTAREA' ||
+        document.activeElement.tagName === 'SELECT') {
+      
+      // Wait a bit for the keyboard to stabilize
+      setTimeout(() => {
+        // Ensure active element is visible
+        document.activeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 100);
+    }
+  });
+  
+  // Handle blur events to close keyboard properly on iOS
+  document.addEventListener('touchend', (e) => {
+    if (!e.target.closest('input, textarea, select')) {
+      // Blur any focused input to hide keyboard
+      if (document.activeElement && 
+          (document.activeElement.tagName === 'INPUT' ||
+           document.activeElement.tagName === 'TEXTAREA' ||
+           document.activeElement.tagName === 'SELECT')) {
+        document.activeElement.blur();
       }
     }
+  });
+  
+  // Prevent the page from jumping on iOS when focusing inputs near the bottom
+  let focusTarget = document.getElementById('keyboard-focus-target');
+  if (!focusTarget) {
+    focusTarget = createFocusTarget();
+  }
+};
+
+// Apply all keyboard fixes for mobile
+export const applyKeyboardFixes = () => {
+  // Only apply on mobile
+  if (window.innerWidth > 768) return;
+  
+  // Apply iOS fixes
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    fixIOSKeyboardScrolling();
+  }
+  
+  // Apply general mobile keyboard fixes
+  scrollToFocusedInput();
+  
+  // Handle keyboard visibility changes
+  detectKeyboardVisibility(
+    (viewportHeight) => {
+      // Keyboard shown
+      document.body.classList.add('keyboard-visible');
+      document.body.style.height = `${viewportHeight}px`;
+    },
+    () => {
+      // Keyboard hidden
+      document.body.classList.remove('keyboard-visible');
+      document.body.style.height = '';
+    }
   );
+  
+  return true;
 };
 
 export default {
   scrollToFocusedInput,
   detectKeyboardVisibility,
-  adjustForKeyboard
+  fixIOSKeyboardScrolling,
+  applyKeyboardFixes
 };

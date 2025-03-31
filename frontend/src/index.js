@@ -6,10 +6,26 @@ import reportWebVitals from './reportWebVitals';
 import { ToastProvider } from './components/ToastManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import analytics from './utils/analytics';
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 // Initialize analytics safely
 analytics.init();
 
+// Register service worker with custom callbacks
+serviceWorkerRegistration.register({
+  onSuccess: (registration) => {
+    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+  },
+  onUpdate: (registration) => {
+    console.log('ServiceWorker update available. New content will be used when all tabs are closed.');
+    // You can show a notification to the user here
+  },
+  onOffline: () => {
+    console.log('App is running in offline mode');
+  }
+});
+
+// Create root and render app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

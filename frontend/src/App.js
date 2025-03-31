@@ -8,8 +8,9 @@ import Navbar from './components/Navbar';
 import ServiceWorkerUpdater from './components/ServiceWorkerUpdater';
 import InstallPrompt from './components/InstallPrompt';
 import BottomNavbar from './components/BottomNavbar';
-import PullToRefresh from './components/PullToRefresh';
+import PullToRefreshWrapper from './components/PullToRefreshWrapper';
 import FloatingActionButton from './components/FloatingActionButton';
+import OfflineIndicator from './components/OfflineIndicator';
 import { useToast } from './components/ToastManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
@@ -19,15 +20,23 @@ import haptic from './utils/haptic';
 import analytics from './utils/analytics';
 import { safeGet } from './utils/safeAccess';
 import { applyMobilePatches } from './utils/mobileCompatibility';
+import serviceWorkerUtil from './utils/serviceWorkerUtil';
 
-// Utility to detect mobile devices
+// Utility to detect mobile devices with more reliability
 const detectMobileDevice = () => {
   try {
-    return (
-      window.innerWidth <= 768 ||
-      'ontouchstart' in window ||
-      safeGet(navigator, 'maxTouchPoints', 0) > 0
-    );
+    // Check via media query
+    const isMobileByWidth = window.matchMedia('(max-width: 768px)').matches;
+    
+    // Check via touch capabilities
+    const isTouchDevice = 'ontouchstart' in window || 
+                          navigator.maxTouchPoints > 0 || 
+                          safeGet(navigator, 'maxTouchPoints', 0) > 0;
+    
+    // Force desktop view via localStorage setting
+    const forceDesktop = localStorage.getItem('forceDesktopView') === 'true';
+    
+    return isMobileByWidth && isTouchDevice && !forceDesktop;
   } catch (error) {
     console.error('Error detecting mobile device:', error);
     return false;
@@ -62,6 +71,7 @@ function App() {
     type: 'unknown',
     effectiveType: 'unknown',
   });
+  const [activeTabIndex, setActiveTabIndex] = useState(0); // For bottom navbar
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : '/api';
 
@@ -96,15 +106,26 @@ function App() {
     }
   }, [darkMode]);
 
-  // Handle online/offline status
+  // Handle online/offline status with improved reliability
   useEffect(() => {
     const handleOnline = () => {
       try {
+        console.log('🌐 Network: Online');
         setIsOnline(true);
         setError(null);
         haptic?.successFeedback();
         fetchGuests();
         analytics.event('Network', 'Status Change', 'Online');
+        
+        // Sync any pending actions when we come back online
+        if (token) {
+          syncManager.setToken(token);
+          syncManager.syncPendingActions().then(result => {
+            if (result && result.synced > 0) {
+              toast.success(`Synced ${result.synced} pending changes`);
+            }
+          });
+        }
       } catch (error) {
         console.error('Error handling online status:', error);
       }
@@ -112,6 +133,7 @@ function App() {
 
     const handleOffline = () => {
       try {
+        console.log('🌐 Network: Offline');
         setIsOnline(false);
         haptic?.errorFeedback();
         setError('You are currently offline. Changes will sync when you reconnect.');
@@ -124,6 +146,7 @@ function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Check connection information if available
     if ('connection' in navigator) {
       try {
         const connection = navigator.connection;
@@ -131,16 +154,36 @@ function App() {
           type: connection?.type || 'unknown',
           effectiveType: connection?.effectiveType || 'unknown',
         });
-        connection?.addEventListener('change', () => {
+        
+        // Listen for connection changes
+        const handleConnectionChange = () => {
           try {
             setNetworkStatus({
               type: connection?.type || 'unknown',
               effectiveType: connection?.effectiveType || 'unknown',
             });
+            
+            // Log connection details
+            console.log('Connection type changed:', connection?.type);
+            console.log('Effective type:', connection?.effectiveType);
+            console.log('Downlink:', connection?.downlink, 'Mbps');
+            
+            // Adjust fetch strategy based on connection quality
+            if (connection?.effectiveType === '2g' || connection?.effectiveType === 'slow-2g') {
+              toast.info('Slow connection detected. Some features may be limited.');
+            }
           } catch (error) {
             console.error('Error updating network status:', error);
           }
-        });
+        };
+        
+        connection?.addEventListener('change', handleConnectionChange);
+        
+        return () => {
+          window.removeEventListener('online', handleOnline);
+          window.removeEventListener('offline', handleOffline);
+          connection?.removeEventListener('change', handleConnectionChange);
+        };
       } catch (error) {
         console.error('Error setting up connection monitoring:', error);
       }
@@ -149,18 +192,30 @@ function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if ('connection' in navigator) {
-        navigator.connection?.removeEventListener('change', () => {});
-      }
     };
   }, []); // fetchGuests omitted to avoid circular dependency
 
-  // Update mobile state on resize
+  // Update mobile state on resize with debouncing
   useEffect(() => {
-    const handleResize = () => setIsMobile(detectMobileDevice());
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    let resizeTimeout;
+    
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const newIsMobile = detectMobileDevice();
+        if (newIsMobile !== isMobile) {
+          console.log(`📱 Viewport: ${newIsMobile ? 'Mobile' : 'Desktop'}`);
+          setIsMobile(newIsMobile);
+        }
+      }, 250);
+    };
+    
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [isMobile]);
 
   // Sync manager setup
   useEffect(() => {
@@ -203,19 +258,27 @@ function App() {
     if (!token) return;
     setLoading(true);
     setError(null);
+    
     try {
       if (navigator.onLine) {
+        console.log('📡 Fetching guests from server...');
         try {
           const res = await axios.get(`${API_BASE_URL}/guests`, {
             headers: { Authorization: `Bearer ${token}` },
+            timeout: 15000 // 15 second timeout for mobile networks
           });
           setGuests(res.data);
+          
+          // Save to IndexedDB for offline access
           await db.saveGuests(res.data).catch((dbErr) =>
             console.warn('Failed to save to local DB:', dbErr)
           );
+          
           try {
+            // Fetch stats separately for performance
             const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
               headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000 // Shorter timeout for stats
             });
             setStats(statsRes.data);
           } catch (statsErr) {
@@ -224,30 +287,39 @@ function App() {
           }
         } catch (apiErr) {
           console.error('API Error:', apiErr);
-          const localGuests = await db.getAllGuests().catch(() => []);
-          if (localGuests && localGuests.length > 0) {
-            setGuests(localGuests);
-            setStats(calculateStats(localGuests));
-            setError('Could not connect to server. Showing cached data.');
+          
+          // Fall back to cached data if available
+          const cachedGuests = await db.getGuests();
+          if (cachedGuests && cachedGuests.length > 0) {
+            console.log('Using cached guest data...');
+            setGuests(cachedGuests);
+            setStats(calculateStats(cachedGuests));
+            setError('Could not update from server. Showing cached data.');
           } else {
-            setError('Failed to load guests. Please check your connection.');
+            setError(apiErr.response?.data?.error || 'Failed to load guests. Please try again.');
           }
         }
       } else {
-        const localGuests = await db.getAllGuests().catch(() => []);
-        setGuests(localGuests);
-        setStats(calculateStats(localGuests));
-        setError('You are offline. Showing locally saved data.');
+        // Offline mode - use cached data from IndexedDB
+        console.log('🔄 Loading guests from cache...');
+        const cachedGuests = await db.getGuests();
+        if (cachedGuests && cachedGuests.length > 0) {
+          setGuests(cachedGuests);
+          setStats(calculateStats(cachedGuests));
+          setError('You are offline. Showing cached guest data.');
+        } else {
+          setError('You are offline and no cached data is available.');
+        }
       }
     } catch (err) {
       console.error('Error in fetchGuests:', err);
-      setError('An unexpected error occurred. Please try refreshing.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [token, API_BASE_URL]);
 
-  // Fetch guests on token change
+  // Load guests when token changes
   useEffect(() => {
     if (token) {
       fetchGuests();
@@ -270,8 +342,18 @@ function App() {
 
   // Request notification permission
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      const timer = setTimeout(() => Notification.requestPermission(), 3000);
+    if (('Notification' in window) && Notification.permission === 'default') {
+      const timer = setTimeout(() => {
+        try {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              console.log('Notification permission granted');
+            }
+          });
+        } catch (error) {
+          console.error('Error requesting notification permission:', error);
+        }
+      }, 5000); // Wait 5 seconds before asking
       return () => clearTimeout(timer);
     }
   }, []);
@@ -280,6 +362,7 @@ function App() {
   useEffect(() => {
     try {
       if (isMobile) {
+        console.log('📱 Applying mobile optimizations...');
         applyMobilePatches();
       }
     } catch (error) {
@@ -287,7 +370,7 @@ function App() {
     }
   }, [isMobile]);
 
-  // Quick actions for FAB
+  // Quick actions for mobile FAB (Floating Action Button)
   const quickActions = useMemo(
     () => [
       {
@@ -310,14 +393,19 @@ function App() {
         ),
         onClick: () => {
           try {
-            const addForm = document.querySelector('.guest-form');
-            if (addForm) {
-              addForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              setTimeout(() => {
+            haptic.mediumFeedback();
+            // Set active tab to the form tab (index 0)
+            setActiveTabIndex(0);
+            
+            // Focus on the first input after a delay
+            setTimeout(() => {
+              const addForm = document.querySelector('.guest-form');
+              if (addForm) {
+                addForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 const firstInput = addForm.querySelector('input');
                 if (firstInput) firstInput.focus();
-              }, 500);
-            }
+              }
+            }, 300);
           } catch (error) {
             console.error('Error with Add Guest action:', error);
           }
@@ -380,6 +468,78 @@ function App() {
     [isOnline, guests, API_BASE_URL, haptic, toast]
   );
 
+  // Bottom navbar items
+  const bottomNavItems = useMemo(() => [
+    {
+      label: 'Add',
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+      ),
+    },
+    {
+      label: 'List',
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Stats',
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Settings',
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: darkMode ? 'Light' : 'Dark',
+      icon: darkMode ? (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ) : (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      ),
+    }
+  ], [darkMode]);
+
+  // Handle bottom navbar clicks
+  const handleBottomNavClick = (index) => {
+    setActiveTabIndex(index);
+    
+    // Handle different tabs
+    switch(index) {
+      case 0: // Add
+        document.querySelector('.guest-form')?.scrollIntoView({ behavior: 'smooth' });
+        break;
+      case 1: // List
+        document.querySelector('.guest-list')?.scrollIntoView({ behavior: 'smooth' });
+        break;
+      case 3: // Settings
+        // You could show a settings modal here
+        break;
+      case 4: // Toggle Dark Mode
+        toggleDarkMode();
+        break;
+      default:
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   // Conditional rendering
   if (!token && showRegister) {
     return <Register setToken={setToken} setShowRegister={setShowRegister} />;
@@ -399,7 +559,10 @@ function App() {
       className={`App ${darkMode ? 'dark' : ''} min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6`}
     >
       <ErrorBoundary>
-        <PullToRefresh onRefresh={fetchGuests} disabled={!isMobile}>
+        {/* Offline indicator */}
+        <OfflineIndicator />
+        
+        <PullToRefreshWrapper onRefresh={fetchGuests} disabled={!isMobile} isLoading={loading}>
           <div className={`max-w-6xl mx-auto ${isMobile ? 'pb-24' : 'pb-6'}`}>
             <Navbar
               darkMode={darkMode}
@@ -407,6 +570,7 @@ function App() {
               isAuthenticated={!!token}
               logout={logout}
             />
+            
             {!isOnline && (
               <div
                 className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-4 dark:bg-orange-900 dark:text-orange-200 rounded-md animate-fadeIn"
@@ -431,6 +595,7 @@ function App() {
                 </div>
               </div>
             )}
+            
             {error && (
               <div
                 className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 dark:bg-red-900 dark:text-red-200 rounded-md"
@@ -439,6 +604,8 @@ function App() {
                 <p>{error}</p>
               </div>
             )}
+            
+            {/* Stats cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 mt-4">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center justify-between card-hover">
                 <div>
@@ -522,6 +689,7 @@ function App() {
                 </div>
               </div>
             </div>
+            
             {loading ? (
               <div
                 className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center"
@@ -567,6 +735,7 @@ function App() {
                 />
               </>
             )}
+            
             {isOnline && (
               <div className="mt-8 text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
@@ -590,13 +759,21 @@ function App() {
               </div>
             )}
           </div>
-        </PullToRefresh>
+        </PullToRefreshWrapper>
+        
+        {/* Mobile-specific components */}
         {isMobile && (
           <>
             <FloatingActionButton actions={quickActions} />
-            <BottomNavbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+            <BottomNavbar 
+              items={bottomNavItems} 
+              activeIdx={activeTabIndex} 
+              onItemClick={handleBottomNavClick} 
+            />
           </>
         )}
+        
+        {/* PWA components */}
         <ServiceWorkerUpdater />
         <InstallPrompt />
       </ErrorBoundary>

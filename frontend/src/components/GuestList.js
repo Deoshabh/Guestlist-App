@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import EditGuestModal from './EditGuestModal';
 import db from '../utils/db';
@@ -27,7 +27,16 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
   const [error, setError] = useState('');
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const toast = useToast();
+
+  // Improved mobile detection with additional checks for touch capability
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTouchDevice = useRef(
+    typeof window !== 'undefined' && 
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  ).current;
+  
+  // Ref for scroll container to enable pull-to-refresh
+  const scrollContainerRef = useRef(null);
 
   // Reset selected guests when the guests list changes
   useEffect(() => {
@@ -350,10 +359,46 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
     toast.success('Guest updated successfully');
   };
 
+  // Enhanced guest list rendering with virtual list for performance on mobile
+  const renderMobileGuestList = () => {
+    console.log('Rendering mobile guest list with', filteredAndSortedGuests.length, 'guests');
+    
+    if (filteredAndSortedGuests.length === 0) {
+      return (
+        <div className="text-center py-8 dark:text-white">
+          <p>No guests match your filters</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-4 pb-safe-bottom">
+        <VirtualList
+          items={filteredAndSortedGuests}
+          itemHeight={110} // Adjust based on your card height
+          containerHeight="calc(100vh - 280px)"
+          renderItem={(guest) => (
+            <GuestListItem 
+              key={guest._id}
+              guest={guest}
+              isSelected={selected.includes(guest._id)}
+              onToggleSelect={() => toggleSelect(guest._id)}
+              onEdit={() => openEditModal(guest)}
+              onToggleInvited={() => toggleGuestInvited(guest._id, guest.invited)}
+              onDelete={() => deleteGuest(guest._id)}
+              onRestore={() => undoDelete(guest._id)}
+            />
+          )}
+          keyExtractor={(guest) => guest._id}
+        />
+      </div>
+    );
+  };
+
   return (
-    <div className="guest-list card animate-fadeIn">
+    <div className="guest-list card animate-fadeIn" ref={scrollContainerRef}>
       {/* Mobile-optimized container with bottom padding for navbar */}
-      <div className="p-4 md:p-6 pb-20 md:pb-6">
+      <div className={`p-4 md:p-6 ${isMobile ? 'pb-24 safe-area-bottom' : 'pb-6'}`}>
         <h2 className="text-xl font-semibold mb-4 dark:text-white">Guest List</h2>
 
         {!isOnline && (
@@ -608,7 +653,7 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
           </div>
         )}
 
-        {/* Guest list */}
+        {/* Guest list with improved conditional rendering */}
         {safeGuests.length === 0 ? (
           <div className="text-center py-8 dark:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -617,21 +662,8 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
             <p className="mt-2">No guests found. Add your first guest using the form above.</p>
           </div>
         ) : isMobile ? (
-          // Mobile view code would go here
-          <div className="space-y-4">
-            {filteredAndSortedGuests.map(guest => (
-              <GuestListItem 
-                key={guest._id}
-                guest={guest}
-                isSelected={selected.includes(guest._id)}
-                onToggleSelect={() => toggleSelect(guest._id)}
-                onEdit={() => openEditModal(guest)}
-                onToggleInvited={() => toggleGuestInvited(guest._id, guest.invited)}
-                onDelete={() => deleteGuest(guest._id)}
-                onRestore={() => undoDelete(guest._id)}
-              />
-            ))}
-          </div>
+          // Enhanced Mobile view with better performance and touch handling
+          renderMobileGuestList()
         ) : viewMode === 'card' ? (
           // Desktop card view
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -856,6 +888,13 @@ function GuestList({ token, guests = [], onUpdate, apiBaseUrl = '/api', isOnline
           setSortOrder={setSortOrder}
         />
       </BottomSheet>
+
+      {/* Add this debug indicator for mobile development */}
+      {isMobile && process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-24 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full z-50">
+          Mobile View
+        </div>
+      )}
     </div>
   );
 }
