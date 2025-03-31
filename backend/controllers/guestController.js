@@ -231,3 +231,12 @@ exports.bulkUpdateGuests = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+// Check if these methods are properly implemented:
+// - getGuestById
+// - getGuestStats
+// - bulkUpdateGuests
+// - exportGuestsCSV
+// - importGuestsCSV
+
+// Each of these has inline fallbacks in the router, suggesting potential conflicts

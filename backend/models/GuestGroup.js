@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Verify this model exists and is properly referenced
 const guestGroupSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -17,4 +18,5 @@ const guestGroupSchema = new mongoose.Schema({
   }
 });
 
+// Check if the relationship with Guest model is correctly established
 module.exports = mongoose.model('GuestGroup', guestGroupSchema);
