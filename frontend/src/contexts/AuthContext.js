@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import syncManager from '../utils/syncManager';
+import { useNetwork } from './NetworkContext';
+import { useToast } from '../components/ToastManager';
+import db from '../utils/db';
 
 // Create context
 const AuthContext = createContext();
@@ -9,11 +12,45 @@ const AuthContext = createContext();
  * Auth provider component
  */
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [token, setToken] = useState(localStorage.getItem('authToken'));
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
-  const [loginError, setLoginError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { isOnline, handleCorsError } = useNetwork();
+  const toast = useToast();
+
+  // Load user from IndexedDB if stored
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        setLoading(true);
+        if (token) {
+          // Try to get user from local database
+          const storedUser = await db.users.get({ isCurrentUser: true });
+          if (storedUser) {
+            setUser(storedUser);
+          } else if (isOnline) {
+            // If not in local DB but online, fetch from API
+            try {
+              // Code for fetching user from API would go here
+              // If successful, store in IndexedDB and set in state
+            } catch (error) {
+              console.error('Failed to fetch user data:', error);
+              if (error.message === 'Network Error') {
+                handleCorsError();
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading auth state:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+  }, [token, isOnline, handleCorsError]);
 
   // CRITICAL FIX: Configure axios with proper CORS handling
   useEffect(() => {
@@ -90,60 +127,88 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // FIX: Always use offline mode for login since backend CORS is broken
+  // Handle login
   const login = useCallback(async (credentials) => {
-    setLoginError(null);
-    setIsLoading(true);
-    
     try {
-      // CRITICAL: Always use offline mode to bypass CORS issues
-      console.log('Using offline login mode due to CORS issues');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Generate offline token and user
-      const mockToken = 'offline-jwt-token-' + Date.now();
-      const offlineUser = { 
-        id: 'offline-user-' + Date.now(), 
-        username: credentials.username || 'user@example.com',
-        name: credentials.username?.split('@')[0] || 'Offline User', 
-        isOfflineLogin: true
+      if (!isOnline) {
+        // Special offline login handling
+        const users = await db.users.where({ isCurrentUser: true }).toArray();
+        if (users.length > 0 && users[0].email === credentials.email) {
+          // This is just for demo/testing - in a real app, use secure methods
+          setToken('offline-token');
+          setUser(users[0]);
+          localStorage.setItem('authToken', 'offline-token');
+          toast.warning('Logged in with offline mode. Limited functionality available.');
+          return true;
+        }
+        toast.error('Cannot log in while offline unless previously logged in');
+        return false;
+      }
+
+      // Real login logic would go here with API calls
+      // For now just simulating a login
+      const dummyToken = 'simulated-token-' + Date.now();
+      const dummyUser = {
+        id: '1',
+        name: credentials.email.split('@')[0],
+        email: credentials.email,
+        isCurrentUser: true,
       };
       
-      // Set user state
-      setToken(mockToken);
-      setUser(offlineUser);
-      setIsLoading(false);
+      // Save to local storage
+      localStorage.setItem('authToken', dummyToken);
+      setToken(dummyToken);
+      setUser(dummyUser);
       
-      return { 
-        success: true, 
-        token: mockToken,
-        user: offlineUser,
-        message: 'Logged in offline mode. Changes will be synced when API is accessible.'
-      };
+      // Save to IndexedDB for offline access
+      await db.users.put(dummyUser);
+      
+      toast.success('Successfully logged in');
+      return true;
     } catch (error) {
       console.error('Login error:', error);
-      setLoginError('Could not log in. Please try again.');
-      setIsLoading(false);
-      return { success: false, error: 'Login failed' };
+      
+      if (error.message === 'Network Error') {
+        handleCorsError();
+        toast.error('Login failed due to network issues. Try offline mode.');
+      } else {
+        toast.error('Login failed: ' + (error.response?.data?.message || error.message));
+      }
+      
+      return false;
     }
-  }, []);
+  }, [isOnline, toast, handleCorsError]);
 
-  // Other methods...
-  const logout = useCallback(() => {
-    setToken('');
-    setUser(null);
-    localStorage.removeItem('token');
-  }, []);
+  // Handle logout
+  const logout = useCallback(async () => {
+    try {
+      // Clear token from storage
+      localStorage.removeItem('authToken');
+      setToken(null);
+      setUser(null);
+      
+      // Clear current user flag but keep data for offline access
+      const currentUser = await db.users.get({ isCurrentUser: true });
+      if (currentUser) {
+        await db.users.update(currentUser.id, { isCurrentUser: false });
+      }
+      
+      toast.info('You have been logged out');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Logout error: ' + error.message);
+    }
+  }, [toast]);
 
   const register = useCallback(async (userData) => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const response = await axios.post('/auth/register', userData);
-      setIsLoading(false);
+      setLoading(false);
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration failed:', error);
-      setIsLoading(false);
+      setLoading(false);
       
       const errorMsg = error.response?.data?.error || error.message || 'Registration failed';
       return { success: false, error: errorMsg };
@@ -153,17 +218,14 @@ export const AuthProvider = ({ children }) => {
   // Context value
   const contextValue = {
     token,
-    setToken,
     user,
-    setUser,
+    loading,
+    showRegister,
+    setShowRegister,
+    setToken,
     login,
     logout,
     register,
-    showRegister,
-    setShowRegister,
-    loginError,
-    setLoginError,
-    isLoading
   };
 
   return (

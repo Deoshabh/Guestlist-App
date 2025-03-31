@@ -1,55 +1,85 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useToast } from '../components/ToastManager';
 
-// Create context
 const NetworkContext = createContext();
 
-/**
- * Network provider component
- */
 export const NetworkProvider = ({ children }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [hasNetworkError, setHasNetworkError] = useState(false);
+  const [forcedOfflineMode, setForcedOfflineMode] = useState(
+    localStorage.getItem('forceOfflineMode') === 'true'
+  );
+  const [corsError, setCorsError] = useState(false);
+  const toast = useToast();
 
-  // Set up event listeners for online/offline status
+  // Define the API base URL with a fallback
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.bhaujanvypar.com';
+
+  // Handle online/offline events
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setHasNetworkError(false);
+      if (!forcedOfflineMode && !corsError) {
+        toast.success('You are back online');
+      }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
+      toast.warning('You are offline. Limited functionality available.');
     };
 
-    // Add event listeners
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Clean up
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [toast, forcedOfflineMode, corsError]);
 
-  // Context value
-  const contextValue = {
-    isOnline,
-    hasNetworkError,
-    setHasNetworkError,
-    API_BASE_URL: '/api'
+  // Function to toggle forced offline mode
+  const toggleForcedOfflineMode = useCallback(() => {
+    const newValue = !forcedOfflineMode;
+    setForcedOfflineMode(newValue);
+    localStorage.setItem('forceOfflineMode', newValue);
+    
+    // Show CORS warning message
+    const corsWarning = document.getElementById('cors-warning');
+    if (corsWarning) {
+      corsWarning.style.display = newValue ? 'block' : 'none';
+    }
+    
+    if (newValue) {
+      toast.info('App switched to offline mode. Some features limited.');
+    } else {
+      toast.info('App switched to online mode. Attempting to sync...');
+    }
+  }, [forcedOfflineMode, toast]);
+
+  // Handle CORS errors
+  const handleCorsError = useCallback(() => {
+    setCorsError(true);
+    
+    // Only toggle to offline mode if not already in that mode
+    if (!forcedOfflineMode) {
+      toggleForcedOfflineMode();
+      toast.error('CORS error detected. Switched to offline mode.', 5000);
+    }
+  }, [forcedOfflineMode, toggleForcedOfflineMode, toast]);
+
+  // Values to expose through context
+  const value = {
+    isOnline: isOnline && !forcedOfflineMode && !corsError,
+    forcedOfflineMode,
+    toggleForcedOfflineMode,
+    handleCorsError,
+    API_BASE_URL,
+    corsError,
   };
 
-  return (
-    <NetworkContext.Provider value={contextValue}>
-      {children}
-    </NetworkContext.Provider>
-  );
+  return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 };
 
-/**
- * Hook to use the network context
- */
 export const useNetwork = () => {
   const context = useContext(NetworkContext);
   if (!context) {
