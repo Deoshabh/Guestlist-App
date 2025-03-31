@@ -178,8 +178,39 @@ export function isPWAMode() {
   );
 }
 
+/**
+ * Toggles between mobile and desktop view modes
+ * This function allows users to manually override the device detection
+ * and force either desktop or mobile layout rendering.
+ * 
+ * @returns {boolean} - Returns true if desktop view is now enabled, false if mobile view
+ */
+export function toggleDesktopView() {
+  try {
+    const currentValue = localStorage.getItem('forceDesktopView');
+    const newValue = currentValue === 'true' ? null : 'true';
+    
+    if (newValue) {
+      localStorage.setItem('forceDesktopView', newValue);
+      console.log('Enabled desktop view mode');
+    } else {
+      localStorage.removeItem('forceDesktopView');
+      console.log('Enabled mobile view mode');
+    }
+    
+    // Reload to apply the changes
+    window.location.reload();
+    
+    return newValue === 'true';
+  } catch (error) {
+    console.error('Error toggling desktop/mobile view:', error);
+    return false;
+  }
+}
+
 export default {
   applyMobilePatches,
   isMobileDevice,
-  isPWAMode
+  isPWAMode,
+  toggleDesktopView
 };
