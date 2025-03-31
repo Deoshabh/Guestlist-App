@@ -28,6 +28,8 @@ const GuestListManager = ({
     retryOperation, 
     withConnectivityCheck 
   } = useErrorHandler();
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [filteredGuests, setFilteredGuests] = useState(guests);
 
   // Fetch guest groups on component mount
   useEffect(() => {
@@ -338,6 +340,42 @@ const GuestListManager = ({
     setNewGroupName('');
     clearError('updateGroup');
   };
+
+  /**
+   * Handle group selection changes
+   * Updates the selected group ID and filters the guest list accordingly
+   * 
+   * @param {string|object} groupIdOrEvent - Either the group ID or the select event object
+   */
+  const onGroupSelect = (groupIdOrEvent) => {
+    // Handle both direct ID passing and event objects from select elements
+    const groupId = typeof groupIdOrEvent === 'object' ? 
+      groupIdOrEvent.target.value : groupIdOrEvent;
+    
+    // Convert "null" string to actual null
+    const normalizedGroupId = groupId === "null" ? null : groupId;
+    
+    // Update the selected group ID
+    setSelectedGroupId(normalizedGroupId);
+    
+    // Filter guests based on selected group
+    if (normalizedGroupId === null) {
+      // If no group selected, show all guests
+      setFilteredGuests(guests);
+    } else {
+      // Filter guests by the selected group ID
+      setFilteredGuests(guests.filter(guest => guest.groupId === normalizedGroupId));
+    }
+  };
+
+  // Update filtered guests when the full guest list changes
+  useEffect(() => {
+    if (selectedGroupId) {
+      setFilteredGuests(guests.filter(guest => guest.groupId === selectedGroupId));
+    } else {
+      setFilteredGuests(guests);
+    }
+  }, [guests, selectedGroupId]);
 
   return (
     <ErrorBoundary onReset={fetchGroups}>
