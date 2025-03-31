@@ -10,62 +10,39 @@ import { UIProvider } from './contexts/UIContext';
 import { GuestProvider } from './contexts/GuestContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import { ToastProvider } from './contexts/ToastContext';
-import analytics from './utils/analytics';
 
-// Initialize analytics safely
-try {
-  analytics.init().catch(error => {
-    console.warn('Analytics initialization failed (non-critical):', error);
-  });
-} catch (e) {
-  console.warn('Failed to initialize analytics:', e);
-}
-
-// Create root and render app
+// Create root and render app - simplified to avoid analytics errors
 const root = createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <ToastProvider>
-      <BrowserRouter>
-        <NetworkProvider>
-          <AuthProvider>
-            <UIProvider>
-              <GuestProvider>
-                <App />
-              </GuestProvider>
-            </UIProvider>
-          </AuthProvider>
-        </NetworkProvider>
-      </BrowserRouter>
-    </ToastProvider>
-  </React.StrictMode>
+  // Removed StrictMode as it causes double initialization which can worsen errors
+  <ToastProvider>
+    <BrowserRouter>
+      <NetworkProvider>
+        <AuthProvider>
+          <UIProvider>
+            <GuestProvider>
+              <App />
+            </GuestProvider>
+          </UIProvider>
+        </AuthProvider>
+      </NetworkProvider>
+    </BrowserRouter>
+  </ToastProvider>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals((metric) => {
-  // Safely log web vitals to analytics
-  try {
-    console.log('Web Vitals:', metric.name, metric.value);
-    // Only call analytics if it's properly initialized
-    if (analytics && typeof analytics.event === 'function') {
-      analytics.event('Web Vitals', metric.name, metric.value.toString());
+// Register service worker with minimal error handling
+try {
+  serviceWorkerRegistration.register({
+    onSuccess: (registration) => {
+      console.log('ServiceWorker registered');
+    },
+    onUpdate: () => {
+      console.log('ServiceWorker updated');
     }
-  } catch (error) {
-    console.warn('Failed to report web vitals', error);
-  }
-});
+  });
+} catch (error) {
+  console.warn('ServiceWorker registration failed:', error);
+}
 
-// Register service worker with custom callbacks
-serviceWorkerRegistration.register({
-  onSuccess: (registration) => {
-    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-  },
-  onUpdate: () => {
-    console.log('ServiceWorker update available. New content will be used when all tabs are closed.');
-  },
-  onOffline: () => {
-    console.log('App is running in offline mode');
-  }
-});
+// Simple reportWebVitals that doesn't depend on analytics
+reportWebVitals(console.log);

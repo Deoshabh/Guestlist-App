@@ -1,15 +1,16 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import syncManager from '../utils/syncManager';
 
+// Create context
 const AuthContext = createContext();
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
-
-export function AuthProvider({ children }) {
+/**
+ * Auth provider component
+ */
+export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
 
   // Set axios base URL
@@ -45,22 +46,58 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  const logout = () => {
-    setToken('');
-  };
+  // Stub login function
+  const login = useCallback(async (credentials) => {
+    console.warn('[STUB] Login called with:', credentials);
+    const mockToken = 'mock-jwt-token-' + Date.now();
+    setToken(mockToken);
+    setUser({ id: 'user-1', username: credentials.username || 'user@example.com' });
+    return { token: mockToken };
+  }, []);
 
-  const value = {
+  // Stub logout function
+  const logout = useCallback(() => {
+    console.warn('[STUB] Logout called');
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  // Stub register function
+  const register = useCallback(async (userData) => {
+    console.warn('[STUB] Register called with:', userData);
+    return { success: true };
+  }, []);
+
+  // Context value
+  const contextValue = {
     token,
     setToken,
-    isAuthenticated: !!token,
+    user,
+    setUser,
+    login,
+    logout,
+    register,
     showRegister,
     setShowRegister,
-    logout
+    isAuthenticated: !!token
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
+
+/**
+ * Hook to use the auth context
+ */
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthContext;
