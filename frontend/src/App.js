@@ -21,6 +21,7 @@ import analytics from './utils/analytics';
 import { safeGet } from './utils/safeAccess';
 import { applyMobilePatches } from './utils/mobileCompatibility';
 import serviceWorkerUtil from './utils/serviceWorkerUtil';
+import { monitorMobileErrors } from './utils/mobileRecovery';
 
 // Utility to detect mobile devices with more reliability
 const detectMobileDevice = () => {
@@ -35,6 +36,17 @@ const detectMobileDevice = () => {
     
     // Force desktop view via localStorage setting
     const forceDesktop = localStorage.getItem('forceDesktopView') === 'true';
+    
+    // Add more detailed logging for mobile detection
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Mobile detection:', {
+        width: window.innerWidth,
+        isMobileByWidth,
+        isTouchDevice,
+        forceDesktop,
+        userAgent: navigator.userAgent
+      });
+    }
     
     return isMobileByWidth && isTouchDevice && !forceDesktop;
   } catch (error) {
@@ -370,6 +382,13 @@ function App() {
     }
   }, [isMobile]);
 
+  // Monitor for mobile errors
+  useEffect(() => {
+    if (isMobile) {
+      monitorMobileErrors();
+    }
+  }, [isMobile]);
+
   // Quick actions for mobile FAB (Floating Action Button)
   const quickActions = useMemo(
     () => [
@@ -540,6 +559,10 @@ function App() {
     }
   };
 
+  // Add a visible indicator for forced desktop view
+  const isDesktopForced = localStorage.getItem('forceDesktopView') === 'true' && 
+                          (window.innerWidth <= 768 || navigator.maxTouchPoints > 0);
+
   // Conditional rendering
   if (!token && showRegister) {
     return <Register setToken={setToken} setShowRegister={setShowRegister} />;
@@ -559,6 +582,22 @@ function App() {
       className={`App ${darkMode ? 'dark' : ''} min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6`}
     >
       <ErrorBoundary>
+        {/* Forced Desktop Mode Indicator */}
+        {isDesktopForced && (
+          <div className="fixed top-0 left-0 right=0 bg-amber-500 text-amber-900 text-sm py-1 px-4 text-center z-50 flex items-center justify-center">
+            <span>Desktop View Active</span>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('forceDesktopView');
+                window.location.reload();
+              }}
+              className="ml-2 px-2 bg-white text-xs rounded-full"
+            >
+              Return to Mobile
+            </button>
+          </div>
+        )}
+        
         {/* Offline indicator */}
         <OfflineIndicator />
         

@@ -9,7 +9,6 @@ class ErrorBoundary extends Component {
       errorInfo: null,
       isMobileError: false
     };
-    this.handleRetry = this.handleRetry.bind(this);
   }
 
   static getDerivedStateFromError(error) {
@@ -28,59 +27,70 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the error to an error reporting service
-    console.error('Error caught by ErrorBoundary:', error, errorInfo);
-    this.setState({ errorInfo });
+    // Log error to console
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // Add detailed logging for debugging mobile issues
-    if (window.innerWidth <= 768) {
-      console.log('Mobile environment details:',
-        {
-          viewport: `${window.innerWidth}x${window.innerHeight}`,
-          userAgent: navigator.userAgent,
-          error: error.toString(),
-          stack: error.stack
-        }
-      );
-    }
+    // Detect mobile-specific errors
+    const errorString = error.toString().toLowerCase();
+    const isMobileError = this.checkIfMobileError(errorString, errorInfo);
     
-    // Check if the error is related to analytics
-    const isAnalyticsError = 
-      (error.message && (
-        error.message.includes('gtag') || 
-        error.message.includes('analytics') || 
-        error.message.includes('google') ||
-        error.message.includes('rn.init')
-      )) || 
-      (errorInfo.componentStack && (
-        errorInfo.componentStack.includes('analytics')
-      ));
+    // Set state with error details
+    this.setState({
+      error,
+      errorInfo,
+      isMobileError
+    });
     
-    // For analytics errors, log but don't show error UI
-    if (isAnalyticsError) {
-      console.warn('Analytics-related error (non-critical):', error);
-      // Reset error state so UI continues to function
-      this.setState({ hasError: false });
-      return;
-    }
-    
-    // Try to log to analytics if available
-    if (window.gtag) {
-      try {
-        window.gtag('event', 'javascript_error', {
-          'error_message': error.message,
-          'error_stack': error.stack,
-          'component': errorInfo.componentStack,
-          'is_mobile': window.innerWidth <= 768 ? 'yes' : 'no'
+    // Log to analytics if available
+    try {
+      if (window.gtag) {
+        window.gtag('event', 'error', {
+          'event_category': 'Error Boundary',
+          'event_label': error.toString(),
+          'value': isMobileError ? 1 : 0
         });
-      } catch (loggingError) {
-        console.error('Failed to log error to analytics:', loggingError);
       }
+    } catch (e) {
+      console.warn('Failed to log error to analytics:', e);
     }
+  }
+  
+  checkIfMobileError(errorString, errorInfo) {
+    // Check for common mobile-related errors
+    const mobileErrorPatterns = [
+      'map', 
+      'undefined is not an object',
+      'null is not an object',
+      'cannot read property',
+      'is not a function',
+      'failed to execute',
+      'touch',
+      'swipe'
+    ];
+    
+    // Check if error message contains mobile patterns
+    const messageMatches = mobileErrorPatterns.some(pattern => 
+      errorString.includes(pattern.toLowerCase())
+    );
+    
+    // Check component stack for mobile components
+    const stackMatches = errorInfo && errorInfo.componentStack && 
+      (errorInfo.componentStack.includes('SwipeAction') || 
+       errorInfo.componentStack.includes('Touch') ||
+       errorInfo.componentStack.includes('Mobile') ||
+       errorInfo.componentStack.includes('BottomSheet') ||
+       errorInfo.componentStack.includes('BottomNav'));
+    
+    // Check if we're on a mobile device
+    const isMobileDevice = window.innerWidth <= 768 || 
+                          navigator.maxTouchPoints > 0 || 
+                          ('ontouchstart' in window);
+                          
+    return (messageMatches || stackMatches) && isMobileDevice;
   }
 
   handleRetry() {
-    this.setState({ hasError: false, error: null, errorInfo: null, isMobileError: false });
+    this.setState({ error: null, errorInfo: null, isMobileError: false });
   }
 
   render() {
@@ -111,9 +121,9 @@ class ErrorBoundary extends Component {
           )}
           <div className="flex flex-wrap space-x-2 space-y-2 sm:space-y-0">
             <button 
-              onClick={this.handleRetry} 
-              className="btn btn-primary"
-            >
+                onClick={this.handleRetry.bind(this)} 
+                className="btn btn-primary"
+              >
               Try Again
             </button>
             {this.state.isMobileError && (
@@ -128,6 +138,21 @@ class ErrorBoundary extends Component {
                 Switch to Desktop View
               </button>
             )}
+            
+            {/* Add toggle button to switch back to mobile if already in desktop view */}
+            {this.state.isMobileError && localStorage.getItem('forceDesktopView') === 'true' && (
+              <button
+                onClick={() => {
+                  // Switch back to mobile view
+                  localStorage.removeItem('forceDesktopView');
+                  window.location.reload();
+                }}
+                className="btn btn-outline"
+              >
+                Return to Mobile View
+              </button>
+            )}
+            
             <button 
               onClick={() => window.location.reload()} 
               className="btn btn-outline"

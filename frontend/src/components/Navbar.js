@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
+import ViewModeToggle from './ViewModeToggle';
 
-const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
+const Navbar = ({ 
+  // Not using isMobile as it appears to be handled by CSS media queries
+  darkMode = false,
+  toggleDarkMode = () => {},
+  onLogout = () => {},
+  isAuthenticated = false // Add isAuthenticated prop with default value
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
@@ -8,11 +15,11 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
   };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-md rounded-lg mb-6">
+    <nav className="bg-white dark:bg-gray-800 shadow-sm mb-6 rounded-lg">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Guest List Manager</h1>
@@ -20,9 +27,12 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
           
           {/* Desktop menu - hidden on mobile since we have bottom nav */}
           <div className="hidden md:flex items-center space-x-3">
-            <button 
+            {/* View mode toggle visible on larger screens too */}
+            <ViewModeToggle className="mr-2" />
+            
+            <button
               onClick={toggleDarkMode}
-              className="px-4 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="px-3 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               {darkMode ? (
                 <span className="flex items-center">
@@ -40,10 +50,9 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
                 </span>
               )}
             </button>
-            
             {isAuthenticated && (
               <button 
-                onClick={logout}
+                onClick={onLogout}
                 className="px-4 py-2 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors"
               >
                 <span className="flex items-center">
@@ -58,6 +67,9 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
           
           {/* Mobile toggle button for additional options (not main navigation) */}
           <div className="md:hidden flex items-center">
+            {/* Add ViewModeToggle to mobile header */}
+            <ViewModeToggle className="mr-2" />
+            
             <button
               onClick={toggleMenu}
               className="outline-none mobile-menu-button touch-manipulation"
@@ -91,10 +103,9 @@ const Navbar = ({ darkMode, toggleDarkMode, isAuthenticated, logout }) => {
         >
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
-        
         {isAuthenticated && (
           <button 
-            onClick={logout}
+            onClick={onLogout}
             className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors touch-manipulation"
           >
             Logout

@@ -4,6 +4,8 @@
 (function() {
   // Set a timeout to check if the application has rendered
   const TIMEOUT = 5000; // 5 seconds
+  const RECOVERY_MARKER = 'errorRecoveryAttempted';
+  const DESKTOP_FORCE_KEY = 'forceDesktopView';
   
   // Add specific error monitoring for map errors
   window.addEventListener('error', function(event) {
@@ -51,86 +53,99 @@
     }
   });
   
-  // Original timeout function to check if app rendered
+  // Create a visible error UI if the app fails to render
   setTimeout(function() {
-    // Check if the root element is empty or has no visible content
-    const rootEl = document.getElementById('root');
-    if (!rootEl || !rootEl.children.length || rootEl.innerHTML.trim() === '') {
-      console.error('Application failed to render within timeout period');
+    const appRoot = document.getElementById('root');
+    
+    // Check if app content has been rendered
+    if (appRoot && (!appRoot.hasChildNodes() || appRoot.innerHTML.trim() === '')) {
+      console.error('Application failed to render within expected timeframe');
       
-      // Display a recovery message
-      const recoveryEl = document.createElement('div');
-      recoveryEl.style.padding = '20px';
-      recoveryEl.style.maxWidth = '500px';
-      recoveryEl.style.margin = '0 auto';
-      recoveryEl.style.fontFamily = 'system-ui, sans-serif';
+      // Track recovery attempts to prevent loops
+      const recoveryAttempt = parseInt(sessionStorage.getItem(RECOVERY_MARKER) || '0');
+      sessionStorage.setItem(RECOVERY_MARKER, String(recoveryAttempt + 1));
       
-      recoveryEl.innerHTML = `
-        <h2 style="color: #3b82f6;">Guest Manager Recovery</h2>
-        <p>We encountered an issue loading the application. Let's try to fix it:</p>
-        <ul style="margin-bottom: 20px;">
-          <li>Clear your browser cache and cookies</li>
-          <li>Disable browser extensions that might be blocking scripts</li>
-          <li>Try refreshing the page</li>
-        </ul>
-        <div>
-          <button id="recovery-reload" style="background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-right: 10px;">
-            Reload Application
-          </button>
-          <button id="recovery-reset" style="background: #ef4444; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
-            Reset Application Data
-          </button>
-          <button id="recovery-desktop" style="background: #10b981; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 10px; width: 100%;">
-            Switch to Desktop Mode
-          </button>
+      // Don't show multiple recovery UIs
+      if (recoveryAttempt > 2) {
+        console.log('Multiple recovery attempts detected, waiting for manual action');
+        return;
+      }
+      
+      // Check if we're on mobile
+      const isMobileDevice = window.innerWidth <= 768 || 
+                             navigator.maxTouchPoints > 0 || 
+                             ('ontouchstart' in window);
+      
+      // Create error UI
+      appRoot.innerHTML = `
+        <div style="padding: 20px; text-align: center; font-family: system-ui, sans-serif;">
+          <div style="max-width: 500px; margin: 30px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #e53e3e; margin-top: 0;">Something went wrong</h2>
+            <p>The application encountered an error while loading.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+              <button id="recovery-reload" style="padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Reload the App
+              </button>
+              ${isMobileDevice ? `
+                <button id="recovery-desktop" style="padding: 10px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                  Switch to Desktop View
+                </button>
+              ` : ''}
+              <button id="recovery-clear" style="padding: 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Clear App Data & Reload
+              </button>
+            </div>
+            <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+              If this issue persists, please contact support.
+            </p>
+          </div>
         </div>
-        <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
-          If the problem persists, please contact support.
-        </p>
       `;
       
-      rootEl.appendChild(recoveryEl);
-      
-      // Add event listeners
+      // Add reload handler
       document.getElementById('recovery-reload').addEventListener('click', function() {
         window.location.reload();
       });
       
-      document.getElementById('recovery-reset').addEventListener('click', function() {
-        // Clear localStorage data
-        const tokenKey = 'token';
-        localStorage.removeItem(tokenKey);
-        
-        // Clear service worker caches
-        if ('caches' in window) {
-          caches.keys().then(function(cacheNames) {
-            return Promise.all(
-              cacheNames.map(function(cacheName) {
-                return caches.delete(cacheName);
-              })
-            );
-          });
-        }
-        
-        // Clear indexedDB
-        if ('indexedDB' in window) {
-          indexedDB.databases().then(function(dbs) {
-            dbs.forEach(function(db) {
-              indexedDB.deleteDatabase(db.name);
-            });
-          });
+      // Add desktop mode handler for mobile devices
+      if (isMobileDevice) {
+        document.getElementById('recovery-desktop').addEventListener('click', function() {
+          // Force desktop view
+          localStorage.setItem(DESKTOP_FORCE_KEY, 'true');
+          window.location.reload();
+        });
+      }
+      
+      // Add clear data handler
+      document.getElementById('recovery-clear').addEventListener('click', function() {
+        // Clear only app-related data
+        try {
+          const keysToPreserve = ['theme', 'language']; // Keep these settings
+          
+          // Get all keys to remove
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && !keysToPreserve.includes(key)) {
+              keysToRemove.push(key);
+            }
+          }
+          
+          // Remove keys
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          
+          // Clear session storage
+          sessionStorage.clear();
+          
+          console.log('App data cleared successfully');
+        } catch (e) {
+          console.error('Error clearing app data:', e);
         }
         
         // Reload the page
         setTimeout(function() {
           window.location.reload();
         }, 500);
-      });
-      
-      // Add desktop mode handler
-      document.getElementById('recovery-desktop').addEventListener('click', function() {
-        localStorage.setItem('forceDesktopView', 'true');
-        window.location.reload();
       });
     }
   }, TIMEOUT);
