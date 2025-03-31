@@ -1,5 +1,3 @@
-// backend/server.js
-
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -8,8 +6,10 @@ const fileUpload = require('express-fileupload');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const guestRoutes = require('./routes/guestRoutes');
+const guestGroupRoutes = require('./routes/guestGroups');
 const healthRoutes = require('./routes/healthRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
+const debugMiddleware = require('./middleware/debugMiddleware');
 
 const app = express();
 
@@ -25,15 +25,17 @@ const corsOptions = {
 };
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(fileUpload());
 app.use(cors(corsOptions));
 
-// Increase payload limit for file uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Add debug middleware in development mode
+if (!isProd && process.env.DEBUG_API === 'true') {
+  app.use(debugMiddleware);
+}
 
-// Connect to MongoDB
+// Connect to MongoDB with unified configuration
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guestlist';
 mongoose.connect(MONGODB_URI)
   .then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
@@ -43,17 +45,7 @@ mongoose.connect(MONGODB_URI)
 app.use('/api', healthRoutes); // Health checks without auth
 app.use('/api/auth', authRoutes);
 app.use('/api/guests', authMiddleware, guestRoutes);
-
-// Health check route with more detailed information
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Server is running',
-    environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0'
-  });
-});
+app.use('/api/guest-groups', authMiddleware, guestGroupRoutes);
 
 // API response debug middleware - helps identify malformed responses
 app.use('/api', (req, res, next) => {

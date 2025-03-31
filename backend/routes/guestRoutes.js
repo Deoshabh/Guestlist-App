@@ -1,78 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const Guest = require('../models/Guest');
+// const GuestGroup = require('../models/GuestGroup'); // Commented out as it's not being used
 const csv = require('fast-csv');
 const { Parser } = require('json2csv');
+const guestController = require('../controllers/guestController');
 
-// GET /api/guests - list guests with search and sort options
-router.get('/', async (req, res) => {
+// Use controller for standard operations
+router.get('/', guestController.getGuests);
+router.get('/:id', guestController.getGuestById ? guestController.getGuestById : async (req, res) => {
   try {
-    const { search, sortField, sortOrder } = req.query;
-    let query = { deleted: false };
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { contact: { $regex: search, $options: 'i' } }
-      ];
-    }
-    let sort = {};
-    if (sortField && sortOrder) {
-      sort[sortField] = sortOrder === 'asc' ? 1 : -1;
-    }
-    const guests = await Guest.find(query).sort(sort);
-    res.json(guests);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/guests - add a new guest with duplicate check
-router.post('/', async (req, res) => {
-  try {
-    const { name, contact } = req.body;
-    // Check for duplicate guest (only non-deleted records)
-    const existing = await Guest.findOne({ name, contact, deleted: false });
-    if (existing) {
-      return res.status(400).json({ error: 'Guest already exists' });
-    }
-    const guest = new Guest({ name, contact });
-    await guest.save();
-    res.json(guest);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PUT /api/guests/:id - update guest (e.g. toggle invited status)
-router.put('/:id', async (req, res) => {
-  try {
-    const { name, contact, invited } = req.body;
-    
-    // If this is a name/contact update (not just an invited status toggle)
-    if (name !== undefined) {
-      // Validate name is not empty
-      if (!name.trim()) {
-        return res.status(400).json({ error: 'Guest name cannot be empty' });
-      }
-      
-      // Check for duplicates (exclude current guest from check)
-      const duplicate = await Guest.findOne({
-        _id: { $ne: req.params.id },
-        name: name.trim(),
-        contact: contact ? contact.trim() : '',
-        deleted: false
-      });
-      
-      if (duplicate) {
-        return res.status(400).json({ error: 'Another guest with the same name and contact already exists' });
-      }
-    }
-    
-    const guest = await Guest.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
-      { new: true, runValidators: true }
-    );
+    const guest = await Guest.findOne({ 
+      _id: req.params.id, 
+      user: req.user.id,
+      deleted: false 
+    }).populate('groupId', 'name');
     
     if (!guest) {
       return res.status(404).json({ error: 'Guest not found' });
@@ -80,45 +22,63 @@ router.put('/:id', async (req, res) => {
     
     res.json(guest);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
+router.post('/', guestController.createGuest);
+router.put('/:id', guestController.updateGuest);
+router.delete('/:id', guestController.deleteGuest);
+router.put('/:id/undo', guestController.undoDeleteGuest);
+router.get('/group/:groupId', guestController.getGuestsByGroup);
+router.put('/bulk-update-group', guestController.updateGuestsGroup);
 
-// DELETE /api/guests/:id - soft delete guest
-router.delete('/:id', async (req, res) => {
+// GET /api/guests/stats - retrieve guest count & statistics
+router.get('/stats', guestController.getGuestStats ? guestController.getGuestStats : async (req, res) => {
   try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, { deleted: true }, { new: true });
-    res.json({ message: 'Guest deleted', guest });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PUT /api/guests/:id/undo - undo delete (restore guest)
-router.put('/:id/undo', async (req, res) => {
-  try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, { deleted: false }, { new: true });
-    res.json({ message: 'Guest restored', guest });
+    const total = await Guest.countDocuments({ user: req.user.id, deleted: false });
+    const invited = await Guest.countDocuments({ user: req.user.id, invited: true, deleted: false });
+    const pending = total - invited;
+    res.json({ total, invited, pending });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /api/guests/bulk-update - bulk update invited status
-router.put('/bulk-update', async (req, res) => {
+router.put('/bulk-update', guestController.bulkUpdateGuests ? guestController.bulkUpdateGuests : async (req, res) => {
   try {
     const { ids, invited } = req.body;
-    await Guest.updateMany({ _id: { $in: ids } }, { invited });
-    res.json({ message: 'Bulk update successful' });
+    const userId = req.user.id;
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No guest IDs provided' });
+    }
+    
+    // Update all guests
+    const result = await Guest.updateMany(
+      { _id: { $in: ids }, user: userId },
+      { $set: { invited } }
+    );
+    
+    // Get the updated guests
+    const updatedGuests = await Guest.find({ _id: { $in: ids }, user: userId });
+    
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} guests updated`,
+      updatedGuests
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // GET /api/guests/export - export guests as CSV
-router.get('/export', async (req, res) => {
+router.get('/export', guestController.exportGuestsCSV ? guestController.exportGuestsCSV : async (req, res) => {
   try {
-    const userId = req.user.id; // Make sure to get the user ID from the auth middleware
+    const userId = req.user.id;
     
     // Find all non-deleted guests belonging to this user
     const guests = await Guest.find({ 
@@ -154,7 +114,7 @@ router.get('/export', async (req, res) => {
 });
 
 // POST /api/guests/import - import guests from a CSV file
-router.post('/import', async (req, res) => {
+router.post('/import', guestController.importGuestsCSV ? guestController.importGuestsCSV : async (req, res) => {
   try {
     if (!req.files || !req.files.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -163,10 +123,11 @@ router.post('/import', async (req, res) => {
     const file = req.files.file;
     let importedGuests = [];
     let errorRows = [];
+    const userId = req.user.id;
     
     // Use CSV options to not auto-detect headers
     const csvOptions = {
-      headers: false, // We'll manually detect headers if present
+      headers: false,
       renameHeaders: false
     };
     
@@ -182,8 +143,8 @@ router.post('/import', async (req, res) => {
       // Check if first row is header row by looking for "name" (case-insensitive)
       const headers = rows[0];
       const isFirstRowHeaders = typeof headers[0] === 'string' &&
-                                  (headers[0].toLowerCase() === 'name' ||
-                                   headers[0].toLowerCase().includes('name'));
+                                (headers[0].toLowerCase() === 'name' ||
+                                 headers[0].toLowerCase().includes('name'));
       
       const dataRows = isFirstRowHeaders ? rows.slice(1) : rows;
       
@@ -198,9 +159,18 @@ router.post('/import', async (req, res) => {
           
           if (name) {
             // Check for duplicate guest
-            const exists = await Guest.findOne({ name, contact, deleted: false });
+            const exists = await Guest.findOne({ 
+              name, 
+              contact, 
+              deleted: false,
+              user: userId
+            });
             if (!exists) {
-              let guest = new Guest({ name, contact });
+              let guest = new Guest({ 
+                name, 
+                contact,
+                user: userId
+              });
               await guest.save();
               importedGuests.push(guest);
             }
@@ -224,18 +194,6 @@ router.post('/import', async (req, res) => {
       error: 'Error importing guests',
       details: err.message
     });
-  }
-});
-
-// GET /api/guests/stats - retrieve guest count & statistics
-router.get('/stats', async (req, res) => {
-  try {
-    const total = await Guest.countDocuments({ deleted: false });
-    const invited = await Guest.countDocuments({ invited: true, deleted: false });
-    const pending = total - invited;
-    res.json({ total, invited, pending });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
