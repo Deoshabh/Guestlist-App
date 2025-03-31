@@ -1,0 +1,12 @@
+[environment]
+type = "node"
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+# Include this phase only if your backend requires a build step (e.g., transpilation)
+# cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
