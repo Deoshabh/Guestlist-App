@@ -63,8 +63,15 @@ const Toast = ({ message, type = 'info', duration = 3000, onClose }) => {
   
   return (
     <div 
-      className={`fixed bottom-20 left-1/2 transform -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg text-white flex items-center gap-2 transition-all duration-300 z-50 ${bgColors[type] || bgColors.info} ${isVisible ? 'opacity-100' : 'opacity-0 -translate-y-4'}`}
-      style={{ maxWidth: 'calc(100vw - 32px)' }}
+      className={`fixed bottom-20 md:bottom-10 left-1/2 transform -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg text-white flex items-center gap-2 transition-all duration-300 z-50 ${bgColors[type] || bgColors.info} ${
+        isVisible 
+          ? 'opacity-100 translate-y-0' 
+          : 'opacity-0 translate-y-4'
+      }`}
+      style={{ 
+        maxWidth: 'calc(100vw - 32px)',
+        touchAction: 'none' 
+      }}
     >
       <div className="flex-shrink-0">
         {getIcon()}
@@ -74,7 +81,7 @@ const Toast = ({ message, type = 'info', duration = 3000, onClose }) => {
       </div>
       <button 
         onClick={handleClose}
-        className="absolute top-1 right-1 text-white/80 hover:text-white"
+        className="absolute top-1 right-1 text-white/80 hover:text-white transition-colors duration-200"
         aria-label="Close"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
