@@ -10,17 +10,19 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
+      "src": "/logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "logo512.png",
+      "src": "/logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay"],
   "theme_color": "#3b82f6",
@@ -29,47 +31,6 @@
   "dir": "ltr",
   "lang": "en",
   "categories": ["productivity", "utilities", "events"],
-  "screenshots": [
-    {
-      "src": "screenshots/desktop1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Guest List Management"
-    },
-    {
-      "src": "screenshots/desktop2.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Adding New Guests"
-    },
-    {
-      "src": "screenshots/mobile1.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile Guest List View"
-    },
-    {
-      "src": "screenshots/mobile2.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Mobile Guest Details"
-    }
-  ],
-  "prefer_related_applications": false,
-  "related_applications": [],
-  "scope": "/",
-  "scope_extensions": [
-    {
-      "origin": "https://your-frontend-domain.com"
-    }
-  ],
-  "launch_handler": {
-    "client_mode": ["navigate-existing", "auto"]
-  },
   "shortcuts": [
     {
       "name": "Add Guest",
@@ -78,7 +39,7 @@
       "url": "/?action=add",
       "icons": [
         {
-          "src": "shortcuts/add.png",
+          "src": "/logo192.png",
           "sizes": "96x96",
           "type": "image/png"
         }
@@ -91,78 +52,13 @@
       "url": "/?filter=invited",
       "icons": [
         {
-          "src": "shortcuts/invited.png",
+          "src": "/logo192.png",
           "sizes": "96x96",
           "type": "image/png"
         }
       ]
     }
   ],
-  "file_handlers": [
-    {
-      "action": "/import",
-      "accept": {
-        "text/csv": [".csv"]
-      },
-      "icons": [
-        {
-          "src": "file_handlers/csv.png",
-          "sizes": "96x96",
-          "type": "image/png"
-        }
-      ],
-      "launch_type": "single-client"
-    }
-  ],
-  "share_target": {
-    "action": "/share-target",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "guests",
-          "accept": ["text/csv", ".csv"]
-        }
-      ]
-    }
-  },
   "handle_links": "preferred",
-  "protocol_handlers": [
-    {
-      "protocol": "web+guestlist",
-      "url": "/protocol?guestlist=%s"
-    }
-  ],
-  "edge_side_panel": {
-    "preferred_width": 400
-  },
-  "widgets": [
-    {
-      "name": "Guest Stats",
-      "tag": "guest-stats",
-      "description": "Shows a summary of your guest list",
-      "template": "stats-template",
-      "ms_ac_template": "widgets/stats.json",
-      "data": "widgets/guest-stats-data.json",
-      "screenshots": [
-        {
-          "src": "widgets/stats-screenshot.png",
-          "sizes": "600x400",
-          "label": "Guest Stats Widget"
-        }
-      ],
-      "icons": [
-        {
-          "src": "widgets/stats-icon.png",
-          "sizes": "96x96"
-        }
-      ],
-      "auth": false,
-      "update": 86400
-    }
-  ]
+  "scope": "/"
 }

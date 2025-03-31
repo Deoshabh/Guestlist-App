@@ -26,6 +26,22 @@ const checkAnalyticsBlocked = () => {
   });
 };
 
+// Polyfill for gtag function to prevent undefined errors
+const initGtagPolyfill = () => {
+  // Create a dummy gtag function if it doesn't exist to prevent errors
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function() {
+    try {
+      window.dataLayer.push(arguments);
+    } catch (e) {
+      console.warn('Analytics error:', e);
+    }
+  };
+};
+
+// Run the polyfill immediately to prevent 'undefined' errors
+initGtagPolyfill();
+
 // Initialize analytics
 const isEnabled = (() => {
   try {
@@ -61,15 +77,16 @@ const initialize = async (trackingId) => {
     isBlocked = await checkAnalyticsBlocked();
     
     if (isBlocked) {
-      console.log('Analytics: Blocked by browser or extension');
+      console.log('Analytics: Blocked by browser or extension - using dummy implementation');
+      // Still provide analytics API surface that does nothing
+      initGtagPolyfill();
       return false;
     }
     
-    // Only load GA if it's not blocked
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function() {
-      window.dataLayer.push(arguments);
-    };
+    // Ensure gtag function exists
+    initGtagPolyfill();
+    
+    // Configure GA
     window.gtag('js', new Date());
     window.gtag('config', trackingId, {
       'send_page_view': false,
@@ -77,10 +94,20 @@ const initialize = async (trackingId) => {
     });
     
     // Dynamically load the GA script
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
-    document.head.appendChild(script);
+    try {
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
+      script.onerror = () => {
+        console.warn('Analytics: Failed to load GA script - possibly blocked');
+        isBlocked = true;
+      };
+      document.head.appendChild(script);
+    } catch (scriptError) {
+      console.warn('Analytics: Error loading script', scriptError);
+      isBlocked = true;
+      return false;
+    }
     
     isInitialized = true;
     return true;
@@ -91,16 +118,25 @@ const initialize = async (trackingId) => {
   }
 };
 
+// Create a safe wrapper for initialization
+const init = (trackingId) => {
+  try {
+    return initialize(trackingId);
+  } catch (error) {
+    console.error('Analytics initialization error:', error);
+    isBlocked = true;
+    return Promise.resolve(false);
+  }
+};
+
 // Safely track page views
 const pageView = (path) => {
-  if (!isEnabled || isBlocked || !isInitialized) return;
+  if (!isEnabled || isBlocked) return;
   
   try {
-    if (window.gtag) {
-      window.gtag('event', 'page_view', {
-        page_path: path
-      });
-    }
+    window.gtag('event', 'page_view', {
+      page_path: path
+    });
   } catch (error) {
     console.warn('Analytics: Error tracking page view', error);
   }
@@ -108,16 +144,14 @@ const pageView = (path) => {
 
 // Safely track events
 const event = (category, action, label, value) => {
-  if (!isEnabled || isBlocked || !isInitialized) return;
+  if (!isEnabled || isBlocked) return;
   
   try {
-    if (window.gtag) {
-      window.gtag('event', action, {
-        'event_category': category,
-        'event_label': label,
-        'value': value
-      });
-    }
+    window.gtag('event', action, {
+      'event_category': category,
+      'event_label': label,
+      'value': value
+    });
   } catch (error) {
     console.warn('Analytics: Error tracking event', error);
   }
@@ -145,10 +179,11 @@ const optIn = () => {
 
 export default {
   initialize,
+  init, // Add the init method that was missing
   pageView,
   event,
   optOut,
   optIn,
   isBlocked: () => isBlocked,
-  isEnabled: () => isEnabled && !isBlocked && isInitialized
+  isEnabled: () => isEnabled && !isBlocked
 };

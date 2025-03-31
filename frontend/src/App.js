@@ -195,6 +195,25 @@ function App() {
     }
   }, []);
 
+  // Handle analytics initialization
+  useEffect(() => {
+    // Instead of using analytics directly, wrap in try-catch to prevent critical errors
+    try {
+      // The analytics ID should come from environment variables
+      const analyticsId = process.env.REACT_APP_GA_ID || 'G-03XW3FWG7L';
+      
+      // Initialize analytics with proper error handling
+      if (isOnline && !localStorage.getItem('analytics_opt_out')) {
+        analytics.init(analyticsId).catch(err => {
+          console.warn('Analytics initialization error (non-critical):', err);
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to initialize analytics:', error);
+      // Don't rethrow - this is non-critical functionality
+    }
+  }, [isOnline]);
+
   // Fetch guests with improved error handling
   const fetchGuests = useCallback(async () => {
     if (!token) return;

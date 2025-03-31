@@ -21,7 +21,27 @@ class ErrorBoundary extends Component {
     console.error('Error caught by ErrorBoundary:', error, errorInfo);
     this.setState({ errorInfo });
     
-    // Log to server or analytics if available
+    // Check if the error is related to analytics
+    const isAnalyticsError = 
+      (error.message && (
+        error.message.includes('gtag') || 
+        error.message.includes('analytics') || 
+        error.message.includes('google') ||
+        error.message.includes('rn.init')
+      )) || 
+      (errorInfo.componentStack && (
+        errorInfo.componentStack.includes('analytics')
+      ));
+    
+    // For analytics errors, log but don't show error UI
+    if (isAnalyticsError) {
+      console.warn('Analytics-related error (non-critical):', error);
+      // Reset error state so UI continues to function
+      this.setState({ hasError: false });
+      return;
+    }
+    
+    // Try to log to analytics if available
     if (window.gtag) {
       try {
         window.gtag('event', 'javascript_error', {
@@ -34,6 +54,7 @@ class ErrorBoundary extends Component {
       }
     }
   }
+
   handleRetry() {
     this.setState({ hasError: false, error: null, errorInfo: null });
   }
