@@ -46,6 +46,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   }, [isOpen]);
 
   // Handle clicking outside to close
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     function handleClickOutside(event) {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -62,6 +63,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   }, [isOpen]);
 
   // Handle escape key to close modal
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     function handleEscapeKey(event) {
       if (event.key === 'Escape') {

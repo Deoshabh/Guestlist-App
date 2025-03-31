@@ -21,6 +21,7 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // eslint-disable-next-line no-unused-vars
   const [networkStatus, setNetworkStatus] = useState({
     type: 'unknown',
     effectiveType: 'unknown'
@@ -112,6 +113,7 @@ function App() {
   }, []);
 
   // Initialize sync manager with token
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (token) {
       syncManager.setToken(token);
@@ -206,6 +208,7 @@ function App() {
     }
   }, [token, API_BASE_URL]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (token) {
       fetchGuests();

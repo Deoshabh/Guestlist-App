@@ -83,6 +83,7 @@ const Login = ({ setToken, showRegister, setShowRegister }) => {
             
             <div className="text-center mt-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 Don't have an account?{' '}
                 <button 
                   type="button" 

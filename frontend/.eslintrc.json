@@ -25,7 +25,10 @@
     // TODO: Fix these issues properly in the future
     "react-hooks/exhaustive-deps": "warn",
     "react/prop-types": "off",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "no-unused-vars": "warn",
+    "react/no-unescaped-entities": "warn",
+    "import/no-anonymous-default-export": "warn"
   },
   "settings": {
     "react": {

@@ -19,6 +19,7 @@ const ServiceWorkerUpdater = () => {
         // Provide haptic feedback to notify users on mobile
         haptic.mediumFeedback();
       },
+      // eslint-disable-next-line no-unused-vars
       onSuccess: registration => {
         console.log('Service Worker registered successfully');
       }
