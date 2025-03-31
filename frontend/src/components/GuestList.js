@@ -1,37 +1,86 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import haptic from '../utils/haptic';
+import GuestService from '../services/GuestService';
 
 /**
  * Simplified GuestList Component
  * Focuses solely on displaying guests in a minimalistic way
  */
 function GuestList({
-  guests = [],
-  onSelect,
+  onSelectGuest,
+  onAddGuest,
   showCheckboxes = false,
   selectedGuests = [],
   viewMode = 'card'
 }) {
-  // Ensure we have an array of guests
-  const safeGuests = Array.isArray(guests) ? guests : [];
-  
+  const [guests, setGuests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Use the new GuestService to fetch guests
+  useEffect(() => {
+    const fetchGuests = async () => {
+      try {
+        setLoading(true);
+        const data = await GuestService.getGuests();
+        setGuests(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching guests:', err);
+        setError('Unable to load guests. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGuests();
+  }, []);
+
   const handleGuestClick = (guest) => {
     haptic.lightFeedback();
-    if (onSelect) onSelect(guest);
+    if (onSelectGuest) onSelectGuest(guest);
   };
-  
-  if (safeGuests.length === 0) {
+
+  const handleAddGuest = async (guest) => {
+    try {
+      setLoading(true);
+      const newGuest = await GuestService.addGuest(guest);
+      setGuests(prevGuests => [...prevGuests, newGuest]);
+      if (onAddGuest) onAddGuest(newGuest);
+      setError(null);
+    } catch (err) {
+      console.error('Error adding guest:', err);
+      setError('Unable to add guest. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="loading">Loading guests...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="error-message">
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    );
+  }
+
+  if (guests.length === 0) {
     return (
       <div className="py-8 text-center text-gray-500 dark:text-gray-400">
         No guests to display
       </div>
     );
   }
-  
-  // Simple card-based list
+
   return (
     <div className="space-y-3 animate-fadeIn">
-      {safeGuests.map(guest => (
+      {guests.map(guest => (
         <div 
           key={guest._id}
           onClick={() => handleGuestClick(guest)}
