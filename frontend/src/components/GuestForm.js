@@ -22,7 +22,8 @@ function GuestForm({
     groupId: selectedGroup ? selectedGroup._id : '',
     firstName: '', // Add firstName field
     lastName: '',  // Add lastName field
-    notes: ''      // Add notes field
+    notes: '',      // Add notes field
+    status: isOnline ? 'Confirmed' : 'Pending' // Set the default status based on online status
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +37,14 @@ function GuestForm({
       }));
     }
   }, [selectedGroup]);
+
+  // Update status when online status changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      status: isOnline ? 'Confirmed' : 'Pending'
+    }));
+  }, [isOnline]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -93,7 +102,8 @@ function GuestForm({
       phone: formData.phone?.trim(), // Include new fields
       invited: formData.invited,
       groupId: formData.groupId || (selectedGroup ? selectedGroup._id : ''),
-      notes: formData.notes?.trim() // Add notes field
+      notes: formData.notes?.trim(), // Add notes field
+      status: isOnline ? 'Confirmed' : 'Pending' // Set status based on online status
     };
     
     // If onAddMultiple is provided, we're in multi-guest mode
@@ -111,7 +121,8 @@ function GuestForm({
         groupId: selectedGroup ? selectedGroup._id : '',
         firstName: '',
         lastName: '',
-        notes: ''
+        notes: '',
+        status: isOnline ? 'Confirmed' : 'Pending' // Reset status based on online state
       });
       
       setLoading(false);
@@ -164,7 +175,8 @@ function GuestForm({
         groupId: selectedGroup ? selectedGroup._id : '',
         firstName: '',
         lastName: '',
-        notes: ''
+        notes: '',
+        status: isOnline ? 'Confirmed' : 'Pending' // Reset status based on online state
       });
       onGuestAdded();
     } catch (err) {
@@ -376,6 +388,25 @@ function GuestForm({
                 Usually automatically filled from Phone or Email.
               </p>
             </div>
+
+            {/* Status field from standalone version */}
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="input w-full"
+                disabled={loading}
+              >
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
           </div>
         )}
         
@@ -407,7 +438,8 @@ function GuestForm({
               groupId: selectedGroup ? selectedGroup._id : '',
               firstName: '',
               lastName: '',
-              notes: ''
+              notes: '',
+              status: isOnline ? 'Confirmed' : 'Pending' // Reset status based on online state
             })}
             disabled={loading}
             className="btn btn-outline touch-manipulation"

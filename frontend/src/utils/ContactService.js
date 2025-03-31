@@ -1,91 +1,76 @@
 /**
- * ContactService - Utility for handling device contacts integration
- * This service provides methods to check support and interact with the
- * Contact Picker API, with appropriate fallbacks.
- * This is a frontend utility and should be placed in the frontend src/utils directory
+ * ContactService - Provides functionality for integrating with device contacts
  */
-const ContactService = {
+class ContactService {
   /**
-   * Check if the Contact Picker API is supported in this browser
-   * @returns {boolean} true if the Contact Picker API is supported
+   * Check if the Contact Picker API is supported by the browser
+   * @returns {boolean} True if supported, false otherwise
    */
-  isContactPickerSupported() {
+  static isContactPickerSupported() {
     return 'contacts' in navigator && 'ContactsManager' in window;
-  },
+  }
 
   /**
-   * Open the device contacts picker and allow user to select multiple contacts
-   * @returns {Promise<Array>} The selected contacts
+   * Open the contact picker and allow user to select contacts
+   * @returns {Promise<Array>} Array of selected contacts
    */
-  async pickContacts() {
+  static async pickContacts() {
     if (!this.isContactPickerSupported()) {
-      throw new Error('Contact Picker API is not supported in this browser');
+      throw new Error('Contact Picker API not supported in this browser');
     }
 
     try {
-      // Request contacts with specific properties
       const props = ['name', 'email', 'tel'];
       const opts = { multiple: true };
       
-      // Open the contact picker
       const contacts = await navigator.contacts.select(props, opts);
       return contacts;
     } catch (err) {
-      console.error('Error picking contacts:', err);
-      if (err.name === 'SecurityError') {
+      if (err.name === 'NotAllowedError') {
         throw new Error('Permission to access contacts was denied');
-      } else if (err.name === 'InvalidStateError') {
-        throw new Error('Contact picker is already showing');
-      } else {
-        throw new Error('Failed to access contacts: ' + (err.message || 'Unknown error'));
       }
+      throw err;
     }
-  },
+  }
 
   /**
-   * Format device contacts into guest objects ready for the application
-   * @param {Array} contacts Array of contacts from the Contact Picker API
+   * Format contacts from Contact Picker API to guest format
+   * @param {Array} contacts - Contacts from the Contact Picker API
+   * @param {boolean} isOnline - Whether the app is online
    * @returns {Array} Formatted guest objects
    */
-  formatContactsAsGuests(contacts) {
+  static formatContactsAsGuests(contacts, isOnline = true) {
     if (!contacts || !contacts.length) return [];
 
     return contacts.map(contact => {
-      // Get the first name, email and phone available
-      const name = contact.name && contact.name[0] ? contact.name[0] : 'Unknown';
-      const email = contact.email && contact.email[0] ? contact.email[0] : '';
-      const phone = contact.tel && contact.tel[0] ? contact.tel[0] : '';
+      // Extract name parts
+      let firstName = '', lastName = '';
+      if (contact.name && contact.name.length > 0) {
+        const nameParts = contact.name[0].split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
 
-      // Create a temporary ID that will be replaced when saved
+      // Get first email and phone if available
+      const email = contact.email && contact.email.length > 0 ? contact.email[0] : '';
+      const phone = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
+      
+      // Format into guest object
       return {
         id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        name,
-        contact: phone || email, // Use phone as primary contact, fall back to email
-        email, // Additional data we'll save for reference
-        phone, // Additional data we'll save for reference
+        name: contact.name && contact.name.length > 0 ? contact.name[0] : '',
+        firstName,
+        lastName,
+        email,
+        phone,
+        contact: phone || email || '',
         invited: false,
-        _pendingSync: true,
-        createdAt: new Date().toISOString()
+        // Set status based on online state
+        status: isOnline ? 'Confirmed' : 'Pending',
+        lastUpdated: new Date().toISOString()
       };
     });
-  },
-
-  /**
-   * Fallback method to manually enter contact information
-   * @returns {Object} A blank guest object template
-   */
-  createEmptyGuest() {
-    return {
-      id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name: '',
-      contact: '',
-      email: '',
-      phone: '',
-      invited: false,
-      _pendingSync: true,
-      createdAt: new Date().toISOString()
-    };
   }
-};
+}
 
 export default ContactService;

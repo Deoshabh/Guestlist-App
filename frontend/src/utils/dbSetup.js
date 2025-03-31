@@ -49,6 +49,15 @@ export const setupDatabase = async (dbName = 'guestManagerDB', version = 1) => {
         db.createObjectStore('settings', { keyPath: 'key' });
         console.log('Created settings store');
       }
+      
+      // Contacts store
+      if (!db.objectStoreNames.contains('contacts')) {
+        const contactsStore = db.createObjectStore('contacts', { keyPath: '_id' });
+        contactsStore.createIndex('name', 'name', { unique: false });
+        contactsStore.createIndex('email', 'email', { unique: false });
+        contactsStore.createIndex('phone', 'phone', { unique: false });
+        console.log('Created contacts store');
+      }
     },
     
     blocked() {

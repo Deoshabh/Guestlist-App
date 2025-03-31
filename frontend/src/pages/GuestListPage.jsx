@@ -1,32 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGuests } from '../contexts/GuestsContext';
-import { useGuestGroups } from '../contexts/GuestGroupsContext';
-import GuestList from '../components/GuestList';
-import SearchBox from '../components/SearchBox';
-import GroupFilter from '../components/GroupFilter';
-import FloatingActionButton from '../components/FloatingActionButton';
-import GuestDetailModal from '../components/GuestDetailModal';
-import ConfirmModal from '../components/ConfirmModal';
+import { useGuests } from '../contexts/GuestContext';
+import { useGuestGroups } from '../contexts/GuestGroupContext';
+import { useNetwork } from '../contexts/NetworkContext';
 import { useToast } from '../components/ToastManager';
-import WhatsAppMessageComposer from '../components/WhatsAppMessageComposer';
 import haptic from '../utils/haptic';
 
+// Import our new components
+import BottomNavigationBar from '../components/navigation/BottomNavigationBar';
+import ActionMenu from '../components/menus/ActionMenu';
+import GuestSummaryCard from '../components/GuestSummaryCard';
+import SearchFilterBar from '../components/SearchFilterBar';
+
+// Import existing components
+import GuestList from '../components/GuestList';
+import GuestDetailModal from '../components/GuestDetailModal';
+import ConfirmModal from '../components/ConfirmModal';
+import WhatsAppMessageComposer from '../components/WhatsAppMessageComposer';
+import GuestListManager from '../components/GuestListManager';
+import LoadingIndicator from '../components/LoadingIndicator';
+import axios from 'axios';
+
 const GuestListPage = () => {
+  // State
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [invitedFilter, setInvitedFilter] = useState('all');
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [filteredGuests, setFilteredGuests] = useState([]);
-  const [selectedGuest, setSelectedGuest] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [selectedGuests, setSelectedGuests] = useState([]);
   const [selectMode, setSelectMode] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showGroupManager, setShowGroupManager] = useState(false);
+  const [viewMode, setViewMode] = useState('card');
   
+  // Import hooks and contexts
   const { guests, loading, error, fetchGuests, deleteGuest } = useGuests();
   const { groups, fetchGroups } = useGuestGroups();
+  const { isOnline, API_BASE_URL } = useNetwork();
   const navigate = useNavigate();
   const toast = useToast();
+  const fileInputRef = useRef(null);
+  const csvFileInputRef = useRef(null);
 
   // Fetch guests and groups on mount
   useEffect(() => {
@@ -34,7 +52,7 @@ const GuestListPage = () => {
     fetchGroups();
   }, [fetchGuests, fetchGroups]);
 
-  // Filter guests based on search term and selected group
+  // Filter guests based on search term, invited filter, and selected group
   useEffect(() => {
     if (!guests) return;
     
@@ -45,11 +63,18 @@ const GuestListPage = () => {
       filtered = filtered.filter(guest => guest.groupId === selectedGroupId);
     }
     
+    // Filter by invitation status
+    if (invitedFilter === 'invited') {
+      filtered = filtered.filter(guest => guest.invited);
+    } else if (invitedFilter === 'notInvited') {
+      filtered = filtered.filter(guest => !guest.invited);
+    }
+    
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(guest => 
-        guest.name.toLowerCase().includes(term) || 
+        guest.name?.toLowerCase().includes(term) || 
         guest.email?.toLowerCase().includes(term) || 
         guest.phone?.includes(term) ||
         guest.notes?.toLowerCase().includes(term)
@@ -57,8 +82,19 @@ const GuestListPage = () => {
     }
     
     setFilteredGuests(filtered);
-  }, [guests, searchTerm, selectedGroupId]);
+  }, [guests, searchTerm, invitedFilter, selectedGroupId]);
 
+  // Calculate stats for the GuestSummaryCard
+  const guestStats = {
+    total: guests?.length || 0,
+    invited: guests?.filter(g => g.invited).length || 0,
+    pending: guests?.filter(g => !g.invited).length || 0,
+    percentage: guests?.length > 0 
+      ? Math.round((guests.filter(g => g.invited).length / guests.length) * 100) 
+      : 0
+  };
+
+  // Event handlers
   const handleShowDetail = (guest) => {
     setSelectedGuest(guest);
     setShowDetailModal(true);
@@ -70,7 +106,7 @@ const GuestListPage = () => {
     setShowDetailModal(false);
   };
 
-  const handleConfirmDelete = (guestId) => {
+  const handleConfirmDelete = () => {
     setShowDetailModal(false);
     setShowDeleteConfirm(true);
   };
@@ -89,8 +125,85 @@ const GuestListPage = () => {
     }
   };
 
-  const handleAddGuest = () => {
-    navigate('/guests/add');
+  const handleToggleView = () => {
+    setViewMode(prev => prev === 'card' ? 'table' : 'card');
+    haptic.lightFeedback();
+  };
+
+  const handleExportCSV = async () => {
+    if (!isOnline) {
+      toast.warning('Export is only available online');
+      haptic.warningFeedback();
+      return;
+    }
+    
+    try {
+      // Make a direct request to download the file
+      const response = await axios.get(`${API_BASE_URL}/guests/export`, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        },
+        responseType: 'blob'
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'guests.csv');
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      haptic.mediumFeedback();
+      toast.success('Guests exported successfully');
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export guests. Please try again.');
+      haptic.errorFeedback();
+    }
+  };
+
+  const handleImportCSV = () => {
+    if (!isOnline) {
+      toast.warning('Import is only available online');
+      haptic.warningFeedback();
+      return;
+    }
+    
+    if (csvFileInputRef.current) {
+      csvFileInputRef.current.click();
+    }
+  };
+
+  const processImportedFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      await axios.post(`${API_BASE_URL}/guests/import`, formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}` 
+        },
+      });
+      fetchGuests();
+      haptic.successFeedback();
+      toast.success('Guests imported successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error importing guests');
+      haptic.errorFeedback();
+    } finally {
+      e.target.value = null;
+    }
   };
 
   const toggleSelectMode = () => {
@@ -138,13 +251,16 @@ const GuestListPage = () => {
   const selectedGroup = selectedGroupId ? groups.find(g => g._id === selectedGroupId) : null;
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-4 md:mb-0">Guests</h1>
-        
-        <div className="flex flex-wrap gap-2">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="container mx-auto px-4 py-4 pb-24">
+        {/* Simple header with title and select mode toggle */}
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-white">
+            {selectedGroup ? selectedGroup.name : 'All Guests'}
+          </h1>
+          
           {selectMode ? (
-            <>
+            <div className="flex gap-2">
               <button 
                 onClick={handleSelectAll}
                 className="btn btn-outline btn-sm"
@@ -153,15 +269,10 @@ const GuestListPage = () => {
               </button>
               <button 
                 onClick={handleBulkMessage}
-                className="btn btn-success btn-sm"
+                className="btn btn-primary btn-sm"
                 disabled={selectedGuests.length === 0}
               >
-                <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Send Messages
-                </div>
+                Message
               </button>
               <button 
                 onClick={toggleSelectMode}
@@ -169,93 +280,97 @@ const GuestListPage = () => {
               >
                 Cancel
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <button
-                onClick={toggleSelectMode}
-                className="btn btn-outline btn-sm"
-              >
-                <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  Select Multiple
-                </div>
-              </button>
-              <button 
-                onClick={handleAddGuest}
-                className="btn btn-primary btn-sm"
-              >
-                <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  Add Guest
-                </div>
-              </button>
-            </>
+            <button
+              onClick={toggleSelectMode}
+              className="btn btn-outline btn-sm"
+            >
+              Select
+            </button>
           )}
         </div>
+        
+        {/* Loading state */}
+        {loading ? (
+          <LoadingIndicator />
+        ) : (
+          <>
+            {/* Show WhatsApp message composer when in bulk message mode */}
+            {showBulkMessageModal ? (
+              <div className="animate-fadeIn">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+                    Send Messages ({selectedGuests.length})
+                  </h2>
+                  <button 
+                    onClick={() => setShowBulkMessageModal(false)}
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Back to List
+                  </button>
+                </div>
+                
+                <WhatsAppMessageComposer 
+                  guests={selectedGuests}
+                  selectedGroup={selectedGroup}
+                  guestGroups={groups}
+                  isMobile={window.innerWidth < 768}
+                  onEditGuest={(guest) => {
+                    setShowBulkMessageModal(false);
+                    handleEdit(guest);
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fadeIn">
+                {/* Summary Card - Quick stats at a glance */}
+                <GuestSummaryCard stats={guestStats} />
+                
+                {/* Search and Filter Bar - Simplified filtering */}
+                <SearchFilterBar
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  invitedFilter={invitedFilter}
+                  onInvitedFilterChange={setInvitedFilter}
+                  stats={guestStats}
+                />
+                
+                {/* Simple notification when no guests match */}
+                {filteredGuests.length === 0 ? (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 mb-2">No guests match your criteria</p>
+                    <button 
+                      onClick={() => {
+                        setSearchTerm('');
+                        setInvitedFilter('all');
+                        setSelectedGroupId(null);
+                      }} 
+                      className="text-primary hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                ) : (
+                  /* Guest List - Minimalist version */
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                      {filteredGuests.length} guest{filteredGuests.length !== 1 ? 's' : ''}
+                    </div>
+                    <GuestList
+                      guests={filteredGuests}
+                      onSelect={handleSelectGuest}
+                      showCheckboxes={selectMode}
+                      selectedGuests={selectedGuests}
+                      viewMode={viewMode}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
-      
-      {showBulkMessageModal ? (
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-              Send Messages to {selectedGuests.length} Guests
-            </h2>
-            <button 
-              onClick={() => setShowBulkMessageModal(false)}
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Back to Guest List
-            </button>
-          </div>
-          <WhatsAppMessageComposer 
-            guests={selectedGuests}
-            selectedGroup={selectedGroup}
-            guestGroups={groups}
-            isMobile={window.innerWidth < 768}
-            onEditGuest={(guest) => {
-              setShowBulkMessageModal(false);
-              handleEdit(guest);
-            }}
-          />
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <SearchBox 
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Search guests..."
-            />
-            
-            <GroupFilter 
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              onChange={setSelectedGroupId}
-            />
-            
-            <div className="text-right hidden md:block">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {filteredGuests.length} guest{filteredGuests.length !== 1 ? 's' : ''} 
-                {selectedGroupId ? ` in ${groups.find(g => g._id === selectedGroupId)?.name}` : ''}
-              </p>
-            </div>
-          </div>
-          
-          <GuestList
-            guests={filteredGuests}
-            loading={loading}
-            error={error}
-            onSelect={handleSelectGuest}
-            showCheckboxes={selectMode}
-            selectedGuests={selectedGuests}
-          />
-        </>
-      )}
       
       {/* Guest Detail Modal */}
       {showDetailModal && selectedGuest && (
@@ -283,17 +398,59 @@ const GuestListPage = () => {
         />
       )}
       
-      {/* Floating Action Button */}
-      {!showBulkMessageModal && (
-        <FloatingActionButton 
-          onClick={handleAddGuest}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          }
-        />
+      {/* Group Manager Modal */}
+      {showGroupManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Manage Groups</h2>
+              <button 
+                onClick={() => setShowGroupManager(false)}
+                className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <GuestListManager
+                selectedGroup={selectedGroup}
+                setSelectedGroup={group => {
+                  setSelectedGroupId(group?._id || null);
+                  setShowGroupManager(false);
+                }}
+                guests={guests}
+              />
+            </div>
+          </div>
+        </div>
       )}
+      
+      {/* Hidden file input for CSV import */}
+      <input 
+        type="file" 
+        ref={csvFileInputRef} 
+        onChange={processImportedFile} 
+        accept=".csv" 
+        className="hidden" 
+      />
+      
+      {/* Action Menu for Secondary Options */}
+      <ActionMenu
+        isOpen={showActionMenu}
+        onClose={() => setShowActionMenu(false)}
+        onExportCSV={handleExportCSV}
+        onImportCSV={handleImportCSV}
+        onManageGroups={() => setShowGroupManager(true)}
+        isOnline={isOnline}
+        onToggleView={handleToggleView}
+      />
+      
+      {/* Bottom Navigation Bar */}
+      <BottomNavigationBar
+        onOpenActionMenu={() => setShowActionMenu(true)}
+      />
     </div>
   );
 };

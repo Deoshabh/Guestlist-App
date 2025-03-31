@@ -185,7 +185,9 @@ export function GuestProvider({ children }) {
       email: guest.email || '',
       phone: guest.phone || '',
       invited: guest.invited || false,
-      groupId: guest.groupId || (selectedGroup ? selectedGroup._id : '')
+      groupId: guest.groupId || (selectedGroup ? selectedGroup._id : ''),
+      // Set status based on online state
+      status: isOnline ? 'Confirmed' : 'Pending'
     };
     
     setPendingGuests([...pendingGuests, newGuest]);
@@ -209,7 +211,9 @@ export function GuestProvider({ children }) {
             email: guest.email,
             phone: guest.phone,
             invited: guest.invited,
-            groupId: guest.groupId
+            groupId: guest.groupId,
+            // Always set status to Confirmed when online
+            status: 'Confirmed'
           }, {
             headers: { Authorization: `Bearer ${token}` }
           })
@@ -232,7 +236,9 @@ export function GuestProvider({ children }) {
             _id: guest.id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
             _pendingSync: true,
             deleted: false,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            // Keep as Pending when offline
+            status: 'Pending'
           };
           
           // Save to local DB

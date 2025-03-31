@@ -135,6 +135,35 @@ class ContactsHelper {
       _original: contact
     };
   }
+  
+  /**
+   * Select multiple contacts from the device's phonebook
+   * @param {Array<string>} properties - Properties to request
+   * @returns {Promise<Array<Object>|null>} Array of contact data or null
+   */
+  static async selectMultipleContacts(properties = ['name', 'email', 'tel']) {
+    try {
+      // Check if Contacts API is supported
+      if (!this.isSupported()) {
+        console.log('Contacts API not supported, cannot select multiple contacts');
+        return null;
+      }
+
+      // Request contacts from the device
+      const contacts = await navigator.contacts.select(properties, {multiple: true});
+      
+      if (!contacts || contacts.length === 0) {
+        console.log('No contacts selected');
+        return null;
+      }
+
+      // Format each contact
+      return contacts.map(contact => this.formatContactData(contact));
+    } catch (error) {
+      console.error('Error selecting multiple contacts:', error);
+      return null;
+    }
+  }
 }
 
 export default ContactsHelper;

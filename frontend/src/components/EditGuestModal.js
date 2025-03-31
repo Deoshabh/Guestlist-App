@@ -7,13 +7,14 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   const [formData, setFormData] = useState({
     name: '',
     contact: '',
-    email: '',  // Add email field
-    phone: '',  // Add phone field
+    email: '',
+    phone: '',
     invited: false,
     groupId: '',
-    firstName: '', // Add firstName field from guest version
-    lastName: '',  // Add lastName field from guest version
-    notes: ''      // Add notes field from guest version
+    firstName: '',
+    lastName: '',
+    notes: '',
+    status: 'Pending' // Add status field from standalone version
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -39,16 +40,20 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
         firstName = guest.name || '';
       }
 
+      // Set the default status based on whether this is a new guest and if we're online
+      const defaultStatus = !guest._id && navigator.onLine ? 'Confirmed' : 'Pending';
+
       setFormData({
         name: guest.name || '',
         contact: guest.contact || '',
-        email: guest.email || '',  // Initialize email
-        phone: guest.phone || '',  // Initialize phone
+        email: guest.email || '',
+        phone: guest.phone || '',
         invited: guest.invited || false,
         groupId: guest.groupId || '',
         firstName,
         lastName,
-        notes: guest.notes || ''
+        notes: guest.notes || '',
+        status: guest.status || defaultStatus // Use appropriate default status
       });
       setNameError('');
     }
@@ -195,11 +200,13 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     const updateData = {
       name: formData.name.trim(),
       contact: formData.contact.trim(),
-      email: formData.email?.trim(),  // Include email in update
-      phone: formData.phone?.trim(),  // Include phone in update
+      email: formData.email?.trim(),
+      phone: formData.phone?.trim(),
       invited: formData.invited,
       groupId: formData.groupId || null,
-      notes: formData.notes || ''  // Include notes field
+      notes: formData.notes || '',
+      // For new guests in online mode, default to Confirmed
+      status: !guest._id && navigator.onLine ? 'Confirmed' : formData.status || 'Pending'
     };
     
     // Check if online
@@ -542,6 +549,24 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
                   disabled={loading}
                   placeholder="Additional notes about this guest"
                 />
+              </div>
+              
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="input w-full"
+                  disabled={loading}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
               </div>
               
               <div className="flex items-center">

@@ -5,9 +5,10 @@ const DB_NAME = 'guest-manager-db';
 const DB_VERSION = 2;
 const STORES = {
   GUESTS: 'guests',
-  PENDING_ACTIONS: 'pendingActions',
+  PENDING_ACTIONS: 'actionQueue',
   GUEST_GROUPS: 'guestGroups',
-  MESSAGE_TEMPLATES: 'messageTemplates'
+  MESSAGE_TEMPLATES: 'messageTemplates',
+  CONTACTS: 'contacts' // Add contacts store
 };
 
 // Initialize the database
@@ -48,6 +49,11 @@ const initDB = () => {
       // Add message templates store
       if (!db.objectStoreNames.contains(STORES.MESSAGE_TEMPLATES)) {
         db.createObjectStore(STORES.MESSAGE_TEMPLATES, { keyPath: '_id' });
+      }
+
+      // Add contacts store
+      if (!db.objectStoreNames.contains(STORES.CONTACTS)) {
+        db.createObjectStore(STORES.CONTACTS, { keyPath: '_id' });
       }
     };
   });
@@ -370,6 +376,48 @@ const deleteMessageTemplate = async (id) => {
   }
 };
 
+// Save contact to IndexedDB
+const saveContact = async (contact) => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.CONTACTS], 'readwrite');
+    const store = transaction.objectStore(STORES.CONTACTS);
+    
+    // Generate unique ID if not provided
+    if (!contact._id) {
+      contact._id = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
+    const request = store.put(contact);
+    
+    request.onsuccess = () => {
+      resolve(contact);
+    };
+    
+    request.onerror = (event) => {
+      reject(`Error saving contact: ${event.target.error}`);
+    };
+  });
+};
+
+// Get all contacts from IndexedDB
+const getContacts = async () => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.CONTACTS], 'readonly');
+    const store = transaction.objectStore(STORES.CONTACTS);
+    const request = store.getAll();
+    
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    
+    request.onerror = (event) => {
+      reject(`Error getting contacts: ${event.target.error}`);
+    };
+  });
+};
+
 // Define a named const before exporting to avoid anonymous default export warning
 const dbOperations = {
   getAllGuests,
@@ -385,7 +433,9 @@ const dbOperations = {
   saveMessageTemplate,
   getAllMessageTemplates,
   getMessageTemplateById,
-  deleteMessageTemplate
+  deleteMessageTemplate,
+  saveContact,
+  getContacts
 };
 
 export default dbOperations;
