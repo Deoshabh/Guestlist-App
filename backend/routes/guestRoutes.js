@@ -118,15 +118,38 @@ router.put('/bulk-update', async (req, res) => {
 // GET /api/guests/export - export guests as CSV
 router.get('/export', async (req, res) => {
   try {
-    const guests = await Guest.find({ deleted: false });
-    const fields = ['name', 'contact', 'invited'];
+    const userId = req.user.id; // Make sure to get the user ID from the auth middleware
+    
+    // Find all non-deleted guests belonging to this user
+    const guests = await Guest.find({ 
+      user: userId,
+      deleted: false 
+    }).populate('groupId', 'name');
+    
+    // Prepare data for CSV export
+    const guestsForExport = guests.map(guest => ({
+      name: guest.name,
+      contact: guest.contact || '',
+      email: guest.email || '',
+      phone: guest.phone || '',
+      invited: guest.invited ? 'Yes' : 'No',
+      group: guest.groupId ? guest.groupId.name : 'No Group'
+    }));
+    
+    // Define CSV fields
+    const fields = ['name', 'contact', 'email', 'phone', 'invited', 'group'];
+    
+    // Create the CSV parser
     const json2csvParser = new Parser({ fields });
-    const csvData = json2csvParser.parse(guests);
+    const csvData = json2csvParser.parse(guestsForExport);
+    
+    // Set headers for file download
     res.header('Content-Type', 'text/csv');
     res.attachment('guests.csv');
     return res.send(csvData);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('CSV export error:', err);
+    res.status(500).json({ error: 'Failed to export guests: ' + err.message });
   }
 });
 

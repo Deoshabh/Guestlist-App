@@ -5,7 +5,7 @@ const GuestGroup = require('../models/GuestGroup');
 
 exports.createGuest = async (req, res) => {
   try {
-    const { name, contact, invited, groupId } = req.body;
+    const { name, contact, email, phone, invited, groupId } = req.body;
     const userId = req.user.id;
     
     if (!name) {
@@ -23,6 +23,8 @@ exports.createGuest = async (req, res) => {
     const newGuest = new Guest({
       name,
       contact: contact || '',
+      email: email || '',  // Store the email field
+      phone: phone || '',  // Store the phone field
       invited: invited || false,
       user: userId,
       groupId: groupId || null
@@ -41,7 +43,7 @@ exports.createGuest = async (req, res) => {
 
 exports.updateGuest = async (req, res) => {
   try {
-    const { name, contact, invited, groupId } = req.body;
+    const { name, contact, email, phone, invited, groupId } = req.body;
     const userId = req.user.id;
     
     // Validate that the groupId belongs to the user if provided
@@ -66,6 +68,8 @@ exports.updateGuest = async (req, res) => {
     // Update guest fields if provided
     if (name) guest.name = name;
     if (contact !== undefined) guest.contact = contact;
+    if (email !== undefined) guest.email = email;  // Update email field
+    if (phone !== undefined) guest.phone = phone;  // Update phone field
     if (invited !== undefined) guest.invited = invited;
     if (groupId !== undefined) guest.groupId = groupId;
     
@@ -158,4 +162,72 @@ exports.updateGuestsGroup = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
-      
+
+// Add the exportGuestsCSV controller function
+exports.exportGuestsCSV = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all non-deleted guests belonging to this user
+    const guests = await Guest.find({ 
+      user: userId,
+      deleted: false 
+    }).populate('groupId', 'name');
+    
+    // Prepare data for CSV export
+    const guestsForExport = guests.map(guest => ({
+      name: guest.name,
+      contact: guest.contact || '',
+      email: guest.email || '',
+      phone: guest.phone || '',
+      invited: guest.invited ? 'Yes' : 'No',
+      group: guest.groupId ? guest.groupId.name : 'No Group'
+    }));
+    
+    // Define CSV fields
+    const fields = ['name', 'contact', 'email', 'phone', 'invited', 'group'];
+    
+    // Create the CSV parser
+    const { Parser } = require('json2csv');
+    const json2csvParser = new Parser({ fields });
+    const csvData = json2csvParser.parse(guestsForExport);
+    
+    // Set headers for file download
+    res.header('Content-Type', 'text/csv');
+    res.attachment('guests.csv');
+    return res.send(csvData);
+  } catch (err) {
+    console.error('CSV export error:', err);
+    res.status(500).json({ error: 'Failed to export guests: ' + err.message });
+  }
+};
+
+// Make sure the bulkUpdateGuests function exists
+exports.bulkUpdateGuests = async (req, res) => {
+  try {
+    const { ids, invited } = req.body;
+    const userId = req.user.id;
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No guest IDs provided' });
+    }
+    
+    // Update all guests
+    const result = await Guest.updateMany(
+      { _id: { $in: ids }, user: userId },
+      { $set: { invited: invited } }
+    );
+    
+    // Get the updated guests
+    const updatedGuests = await Guest.find({ _id: { $in: ids }, user: userId });
+    
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} guests updated`,
+      updatedGuests
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

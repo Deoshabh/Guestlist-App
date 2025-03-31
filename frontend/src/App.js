@@ -22,6 +22,9 @@ import { safeGet } from './utils/safeAccess';
 import { applyMobilePatches } from './utils/mobileCompatibility';
 import serviceWorkerUtil from './utils/serviceWorkerUtil';
 import GuestListManager from './components/GuestListManager';
+import GuestContactManager from './components/GuestContactManager';
+import PendingGuestsList from './components/PendingGuestsList';
+import ContactService from './utils/ContactService';
 
 // Utility to detect mobile devices with more reliability
 const detectMobileDevice = () => {
@@ -88,6 +91,7 @@ function App() {
   const [refreshAttempts, setRefreshAttempts] = useState(0);
   const [guestGroups, setGuestGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [pendingGuests, setPendingGuests] = useState([]);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : '/api';
 
@@ -415,6 +419,140 @@ function App() {
   const logout = () => {
     haptic.mediumFeedback();
     setToken('');
+  };
+
+  // Handle imported contacts from phonebook
+  const handleContactsImported = (contacts) => {
+    if (!contacts || contacts.length === 0) {
+      return;
+    }
+    
+    // Add the current selected group to imported contacts
+    const contactsWithGroup = contacts.map(contact => ({
+      ...contact,
+      groupId: selectedGroup ? selectedGroup._id : ''
+    }));
+    
+    // Add contacts to pending list
+    setPendingGuests(contactsWithGroup);
+    
+    // Show toast notification
+    toast.success(`${contacts.length} contacts imported!`);
+    haptic.successFeedback();
+  };
+  
+  // Handle updating a pending guest
+  const handleUpdatePendingGuest = (index, updatedGuest) => {
+    const newPendingGuests = [...pendingGuests];
+    newPendingGuests[index] = updatedGuest;
+    setPendingGuests(newPendingGuests);
+  };
+  
+  // Handle removing a pending guest
+  const handleRemovePendingGuest = (index) => {
+    const newPendingGuests = [...pendingGuests];
+    newPendingGuests.splice(index, 1);
+    setPendingGuests(newPendingGuests);
+    haptic.lightFeedback();
+  };
+  
+  // Add a new guest to the pending list
+  const handleAddToPendingList = (guest) => {
+    // Create a proper temporary guest object
+    const newGuest = {
+      ...guest,
+      id: guest.id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      // Set default values if not provided
+      name: guest.name || '',
+      contact: guest.contact || '',
+      email: guest.email || '',
+      phone: guest.phone || '',
+      invited: guest.invited || false,
+      groupId: guest.groupId || (selectedGroup ? selectedGroup._id : '')
+    };
+    
+    setPendingGuests([...pendingGuests, newGuest]);
+    haptic.lightFeedback();
+    toast.success('Guest added to pending list');
+  };
+  
+  // Save all pending guests
+  const handleSaveAllPendingGuests = async () => {
+    if (pendingGuests.length === 0) return;
+    
+    setLoading(true);
+    
+    try {
+      if (isOnline) {
+        // Online mode: Save all guests to server
+        const promises = pendingGuests.map(guest => 
+          axios.post(`${API_BASE_URL}/guests`, {
+            name: guest.name,
+            contact: guest.contact,
+            email: guest.email,
+            phone: guest.phone,
+            invited: guest.invited,
+            groupId: guest.groupId
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        );
+        
+        const responses = await Promise.all(promises);
+        const savedGuests = responses.map(res => res.data);
+        
+        // Save to IndexedDB for offline access
+        try {
+          await Promise.all(savedGuests.map(guest => db.saveGuest(guest)));
+        } catch (dbErr) {
+          console.warn('Failed to save some guests to local DB:', dbErr);
+        }
+      } else {
+        // Offline mode: Save to IndexedDB and queue for later sync
+        await Promise.all(pendingGuests.map(async guest => {
+          const tempGuest = {
+            ...guest,
+            _id: guest.id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            _pendingSync: true,
+            deleted: false,
+            createdAt: new Date().toISOString()
+          };
+          
+          // Save to local DB
+          await db.saveGuest(tempGuest);
+          
+          // Queue for later sync (without the temp ID)
+          const { id, _id, _pendingSync, ...syncData } = guest;
+          await db.queueAction('ADD_GUEST', syncData);
+        }));
+      }
+      
+      // Clear pending guests after saving
+      setPendingGuests([]);
+      
+      // Refresh guest list
+      fetchGuests();
+      
+      // Provide feedback
+      haptic.successFeedback();
+      toast.success(`${pendingGuests.length} guests added successfully!`);
+    } catch (err) {
+      console.error('Error saving guests:', err);
+      haptic.errorFeedback();
+      toast.error(
+        isOnline 
+          ? 'Failed to save some guests. Please try again.' 
+          : 'Failed to save guests offline. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Cancel all pending guests
+  const handleCancelAllPendingGuests = () => {
+    setPendingGuests([]);
+    haptic.lightFeedback();
   };
 
   // Request notification permission
@@ -793,7 +931,7 @@ function App() {
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-6 w-6 text-yellow-500 dark:text-yellow-300"
                     fill="none"
-                    viewBox="0 0 24 24"
+                    viewBox="0 24 24"
                     stroke="currentColor"
                     aria-hidden="true"
                   >
@@ -840,38 +978,65 @@ function App() {
               </div>
             ) : (
               <>
-                {/* Guest Groups Management */}
-                <div className="guest-groups">
-                  <GuestListManager
-                    token={token}
-                    apiBaseUrl={API_BASE_URL}
-                    isOnline={isOnline}
-                    selectedGroup={selectedGroup}
-                    setSelectedGroup={setSelectedGroup}
-                    guests={guests} // Pass guests to the component
-                  />
-                </div>
+                {/* Guest Contact Manager for phonebook integration */}
+                <GuestContactManager onContactsImported={handleContactsImported} />
                 
-                {/* Guest Form with group selection */}
-                <GuestForm
-                  token={token}
-                  onGuestAdded={fetchGuests}
-                  apiBaseUrl={API_BASE_URL}
-                  isOnline={isOnline}
-                  selectedGroup={selectedGroup}
-                  guestGroups={guestGroups}
+                {/* Pending Guests List */}
+                <PendingGuestsList
+                  pendingGuests={pendingGuests}
+                  onUpdatePendingGuest={handleUpdatePendingGuest}
+                  onRemovePendingGuest={handleRemovePendingGuest}
+                  onSaveAll={handleSaveAllPendingGuests}
+                  onCancelAll={handleCancelAllPendingGuests}
                 />
                 
-                {/* Guest List filtered by selected group */}
-                <GuestList
-                  token={token}
-                  guests={guests}
-                  onUpdate={fetchGuests}
-                  apiBaseUrl={API_BASE_URL}
-                  isOnline={isOnline}
-                  selectedGroup={selectedGroup}
-                  guestGroups={guestGroups} // Add this prop
-                />
+                {/* Display the multi-guest mode button when no pending guests */}
+                {pendingGuests.length === 0 ? (
+                  <>
+                    {/* Guest Groups Management */}
+                    <div className="guest-groups">
+                      <GuestListManager
+                        token={token}
+                        apiBaseUrl={API_BASE_URL}
+                        isOnline={isOnline}
+                        selectedGroup={selectedGroup}
+                        setSelectedGroup={setSelectedGroup}
+                        guests={guests}
+                      />
+                    </div>
+                    
+                    {/* Guest Form with group selection */}
+                    <GuestForm
+                      token={token}
+                      onGuestAdded={fetchGuests}
+                      apiBaseUrl={API_BASE_URL}
+                      isOnline={isOnline}
+                      selectedGroup={selectedGroup}
+                      guestGroups={guestGroups}
+                      onAddMultiple={handleAddToPendingList}
+                    />
+                    
+                    {/* Guest List filtered by selected group */}
+                    <GuestList
+                      token={token}
+                      guests={guests}
+                      onUpdate={fetchGuests}
+                      apiBaseUrl={API_BASE_URL}
+                      isOnline={isOnline}
+                      selectedGroup={selectedGroup}
+                      guestGroups={guestGroups}
+                    />
+                  </>
+                ) : (
+                  <div className="mt-4 mb-8 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 dark:text-blue-300 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-blue-700 dark:text-blue-200">
+                      Please review and save your pending guests before continuing.
+                    </p>
+                  </div>
+                )}
               </>
             )}
             

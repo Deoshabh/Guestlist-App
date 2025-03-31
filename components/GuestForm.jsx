@@ -26,6 +26,13 @@ export default function GuestForm({ guest, onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Make sure name isn't empty
+    if (!formData.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+    
+    // Pass the updated guest data to the parent
     onSave({
       ...guest,
       ...formData,

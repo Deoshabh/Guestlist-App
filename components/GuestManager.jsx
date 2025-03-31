@@ -8,6 +8,8 @@ export default function GuestManager() {
   const [pendingGuests, setPendingGuests] = useState([]);
   const [editingGuest, setEditingGuest] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
 
   // Load guests from localStorage on component mount
   useEffect(() => {
@@ -91,6 +93,21 @@ export default function GuestManager() {
     showNotification(`${pendingGuests.length} guests added successfully!`);
   };
 
+  // Filter guests based on search text and status
+  const filteredGuests = guests.filter(guest => {
+    const matchesText = 
+      filterText === '' || 
+      guest.name.toLowerCase().includes(filterText.toLowerCase()) ||
+      (guest.email && guest.email.toLowerCase().includes(filterText.toLowerCase())) ||
+      (guest.phone && guest.phone.toLowerCase().includes(filterText.toLowerCase()));
+    
+    const matchesStatus = 
+      filterStatus === 'All' || 
+      guest.status === filterStatus;
+    
+    return matchesText && matchesStatus;
+  });
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">Guest Management</h1>
@@ -156,10 +173,33 @@ export default function GuestManager() {
       )}
       
       <div>
-        <h2 className="text-xl font-semibold mb-4">Guest List ({guests.length})</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Guest List ({filteredGuests.length})</h2>
+          
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              placeholder="Search guests..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md"
+            />
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
         
-        {guests.length === 0 ? (
-          <p className="text-gray-500 italic">No guests added yet.</p>
+        {filteredGuests.length === 0 ? (
+          <p className="text-gray-500 italic">No guests match your filters.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -173,7 +213,7 @@ export default function GuestManager() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {guests.map(guest => (
+                {filteredGuests.map(guest => (
                   <tr key={guest.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{guest.name}</div>

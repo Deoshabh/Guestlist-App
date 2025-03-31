@@ -1,9 +1,13 @@
 /**
- * ContactService for handling device contacts integration
+ * ContactService - Utility for handling device contacts integration
+ * This service provides methods to check support and interact with the
+ * Contact Picker API, with appropriate fallbacks.
+ * This is a frontend utility and should be placed in the frontend src/utils directory
  */
 const ContactService = {
   /**
    * Check if the Contact Picker API is supported in this browser
+   * @returns {boolean} true if the Contact Picker API is supported
    */
   isContactPickerSupported() {
     return 'contacts' in navigator && 'ContactsManager' in window;
@@ -11,6 +15,7 @@ const ContactService = {
 
   /**
    * Open the device contacts picker and allow user to select multiple contacts
+   * @returns {Promise<Array>} The selected contacts
    */
   async pickContacts() {
     if (!this.isContactPickerSupported()) {
@@ -39,6 +44,8 @@ const ContactService = {
 
   /**
    * Format device contacts into guest objects ready for the application
+   * @param {Array} contacts Array of contacts from the Contact Picker API
+   * @returns {Array} Formatted guest objects
    */
   formatContactsAsGuests(contacts) {
     if (!contacts || !contacts.length) return [];
@@ -49,15 +56,35 @@ const ContactService = {
       const email = contact.email && contact.email[0] ? contact.email[0] : '';
       const phone = contact.tel && contact.tel[0] ? contact.tel[0] : '';
 
+      // Create a temporary ID that will be replaced when saved
       return {
-        id: `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         name,
-        email,
-        phone,
-        status: 'Pending',
-        lastUpdated: new Date().toISOString()
+        contact: phone || email, // Use phone as primary contact, fall back to email
+        email, // Additional data we'll save for reference
+        phone, // Additional data we'll save for reference
+        invited: false,
+        _pendingSync: true,
+        createdAt: new Date().toISOString()
       };
     });
+  },
+
+  /**
+   * Fallback method to manually enter contact information
+   * @returns {Object} A blank guest object template
+   */
+  createEmptyGuest() {
+    return {
+      id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      name: '',
+      contact: '',
+      email: '',
+      phone: '',
+      invited: false,
+      _pendingSync: true,
+      createdAt: new Date().toISOString()
+    };
   }
 };
 

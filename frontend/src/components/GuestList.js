@@ -205,14 +205,47 @@ function GuestList({
     }
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (!isOnline) {
       setError('Export is only available online');
       haptic.errorFeedback();
       return;
     }
-    window.open(`${apiBaseUrl}/guests/export`, '_blank');
-    haptic.mediumFeedback();
+    
+    try {
+      setLoading(true);
+      
+      // Make a direct request to download the file
+      const response = await axios.get(`${apiBaseUrl}/guests/export`, {
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        },
+        responseType: 'blob' // Important: This tells axios to handle the response as a blob
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'guests.csv');
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      haptic.mediumFeedback();
+      toast.success('Guests exported successfully');
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Failed to export guests. Please try again.');
+      haptic.errorFeedback();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const importCSV = async (e) => {
@@ -274,6 +307,14 @@ function GuestList({
     }
   };
 
+  const handleEditGuest = (guest) => {
+    setCurrentGuest(guest);
+    setEditModalOpen(true);
+    // Clear any existing error when opening the edit modal
+    setError('');
+    haptic.lightFeedback();
+  };
+
   const renderMobileGuestList = () => (
     filteredAndSortedGuests.length === 0 ? (
       <div className="text-center py-8 dark:text-white">
@@ -290,7 +331,7 @@ function GuestList({
             guest={guest}
             isSelected={selected.includes(guest._id)}
             onToggleSelect={() => toggleSelect(guest._id)}
-            onEdit={() => setCurrentGuest(guest) || setEditModalOpen(true)}
+            onEdit={() => handleEditGuest(guest)}
             onToggleInvited={() => toggleGuestInvited(guest._id, guest.invited)}
             onDelete={() => deleteGuest(guest._id)}
             onRestore={() => undoDelete(guest._id)}
@@ -304,7 +345,7 @@ function GuestList({
   const GuestActions = ({ guest }) => (
     <div className="flex flex-wrap justify-end gap-2 mt-3">
       <button
-        onClick={() => setCurrentGuest(guest) || setEditModalOpen(true)}
+        onClick={() => handleEditGuest(guest)}
         className="px-3 py-2 text-sm rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
         aria-label={`Edit ${guest.name}`}
       >
@@ -580,19 +621,19 @@ function GuestList({
             )}
           </>
         )}
-        <EditGuestModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          guest={currentGuest}
-          onUpdate={() => {
-            onUpdate();
-            toast.success('Guest updated');
-          }}
-          token={token}
-          apiBaseUrl={apiBaseUrl}
-          guestGroups={guestGroups}
-        />
-        <BottomSheet isOpen={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} height="80vh" title="Filter & Sort">
+        
+        {isMobile && process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-24 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full z-50">
+            Mobile View
+          </div>
+        )}
+        
+        <BottomSheet
+          isOpen={filterSheetOpen}
+          onClose={() => setFilterSheetOpen(false)}
+          height="80vh"
+          title="Filter & Sort"
+        >
           <GuestFilterSheet
             filter={filter}
             setFilter={setFilter}
@@ -602,11 +643,20 @@ function GuestList({
             setSortOrder={setSortOrder}
           />
         </BottomSheet>
-        {isMobile && process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-24 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full z-50">
-            Mobile View
-          </div>
-        )}
+        
+        <EditGuestModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          guest={currentGuest}
+          onUpdate={(updatedGuest) => {
+            onUpdate();
+            toast.success(`Guest ${updatedGuest.name} updated`);
+          }}
+          token={token}
+          apiBaseUrl={apiBaseUrl}
+          guestGroups={guestGroups}
+          isOnline={isOnline}
+        />
       </div>
     </div>
   );

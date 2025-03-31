@@ -2,23 +2,28 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import db from '../utils/db';
 import haptic from '../utils/haptic';
+import ContactService from '../utils/ContactService';
 
 function GuestForm({ 
   token, 
   onGuestAdded, 
   apiBaseUrl = '/api', 
   isOnline = true,
-  selectedGroup = null, // Add this prop
-  guestGroups = [] // Add this prop
+  selectedGroup = null, 
+  guestGroups = [],
+  onAddMultiple = null // New prop to enable multi-guest addition
 }) {
   const [formData, setFormData] = useState({
     name: '',
     contact: '',
+    email: '', // New field
+    phone: '', // New field
     invited: false,
     groupId: selectedGroup ? selectedGroup._id : ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false); // Toggle for advanced fields
 
   useEffect(() => {
     if (selectedGroup) {
@@ -31,10 +36,26 @@ function GuestForm({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // If setting phone or email, we also update 'contact' if it's empty
+    if (name === 'phone' && (!formData.contact || formData.contact === formData.email)) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        contact: value // Update contact to match the phone
+      }));
+    } else if (name === 'email' && !formData.contact && !formData.phone) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        contact: value // Use email as contact if no phone
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -52,9 +73,30 @@ function GuestForm({
     const guestData = {
       name: formData.name.trim(),
       contact: formData.contact.trim(),
+      email: formData.email?.trim(), // Include new fields
+      phone: formData.phone?.trim(), // Include new fields
       invited: formData.invited,
       groupId: formData.groupId || (selectedGroup ? selectedGroup._id : '')
     };
+    
+    // If onAddMultiple is provided, we're in multi-guest mode
+    if (onAddMultiple) {
+      onAddMultiple(guestData);
+      haptic.lightFeedback();
+      
+      // Reset form for next entry
+      setFormData({
+        name: '',
+        contact: '',
+        email: '',
+        phone: '',
+        invited: false,
+        groupId: selectedGroup ? selectedGroup._id : ''
+      });
+      
+      setLoading(false);
+      return;
+    }
     
     try {
       if (isOnline) {
@@ -96,6 +138,8 @@ function GuestForm({
       setFormData({
         name: '',
         contact: '',
+        email: '',
+        phone: '',
         invited: false,
         groupId: selectedGroup ? selectedGroup._id : ''
       });
@@ -113,7 +157,7 @@ function GuestForm({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
-      <h2 className="text-xl font-semibold mb-4 dark:text-white">Add New Guest</h2>
+      <h2 className="text-xl font-semibold mb-4 dark:text-white">Add Guest</h2>
       
       {!isOnline && (
         <div className="p-3 mb-4 text-sm text-orange-700 bg-orange-100 rounded-lg dark:bg-orange-900 dark:text-orange-200 flex items-center">
@@ -150,96 +194,113 @@ function GuestForm({
           </div>
           
           <div className="col-span-1">
-            <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Contact (Optional)
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Phone
             </label>
             <input 
-              id="contact"
-              name="contact"
-              type="text"
-              placeholder="Phone or email"
-              value={formData.contact}
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder="Phone number"
+              value={formData.phone}
               onChange={handleChange}
               disabled={loading}
               className="input w-full"
             />
           </div>
           
-          <div className="col-span-1 flex items-end">
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="btn btn-primary w-full relative overflow-hidden"
-              onClick={() => haptic.lightFeedback()}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {isOnline ? 'Adding...' : 'Saving Offline...'}
-                </span>
-              ) : (
-                <span className="flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Guest
-                </span>
-              )}
-              
-              {/* Progress animation */}
-              {loading && (
-                <div className="absolute bottom-0 left-0 h-1 bg-white bg-opacity-30 animate-progress"></div>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Add group selection dropdown */}
-        <div className="col-span-1 md:col-span-3">
-          <label htmlFor="guestGroup" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            <span className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Guest Group
-            </span>
-          </label>
-          <div className="relative">
-            <select
-              id="guestGroup"
-              name="groupId"
-              value={formData.groupId}
+          <div className="col-span-1">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email
+            </label>
+            <input 
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Email address"
+              value={formData.email}
               onChange={handleChange}
-              className="input w-full touch-manipulation appearance-none pl-10"
               disabled={loading}
-            >
-              <option value="">No group selected</option>
-              {guestGroups.map(group => (
-                <option key={group._id} value={group._id} className={group._pendingSync ? 'text-yellow-600 dark:text-yellow-400' : ''}>
-                  {group.name} {group._pendingSync ? '(pending sync)' : ''}
-                </option>
-              ))}
-            </select>
-            <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+              className="input w-full"
+            />
+          </div>
+        </div>
+        
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="text-sm text-primary dark:text-blue-400 hover:underline focus:outline-none"
+        >
+          {showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+        </button>
+        
+        {showAdvanced && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Group selection control */}
+            <div>
+              <label htmlFor="guestGroup" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Guest Group
+                </span>
+              </label>
+              <div className="relative">
+                <select
+                  id="guestGroup"
+                  name="groupId"
+                  value={formData.groupId}
+                  onChange={handleChange}
+                  className="input w-full touch-manipulation appearance-none pl-10"
+                  disabled={loading}
+                >
+                  <option value="">No group selected</option>
+                  {guestGroups.map(group => (
+                    <option key={group._id} value={group._id} className={group._pendingSync ? 'text-yellow-600 dark:text-yellow-400' : ''}>
+                      {group.name} {group._pendingSync ? '(pending sync)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              {guestGroups.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  No groups available. Create a group first.
+                </p>
+              )}
             </div>
-            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+            
+            {/* Contact field for backward compatibility */}
+            <div>
+              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Contact (Legacy)
+              </label>
+              <input 
+                id="contact"
+                name="contact"
+                type="text"
+                placeholder="Contact info (used by older versions)"
+                value={formData.contact}
+                onChange={handleChange}
+                disabled={loading}
+                className="input w-full"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Usually automatically filled from Phone or Email.
+              </p>
             </div>
           </div>
-          {guestGroups.length === 0 && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              No groups available. Create a group first.
-            </p>
-          )}
-        </div>
+        )}
         
         {/* Checkbox for invited status */}
         <div className="flex items-center">
@@ -263,6 +324,8 @@ function GuestForm({
             onClick={() => setFormData({
               name: '',
               contact: '',
+              email: '',
+              phone: '',
               invited: false,
               groupId: selectedGroup ? selectedGroup._id : ''
             })}
@@ -272,12 +335,49 @@ function GuestForm({
             Reset
           </button>
           
+          {onAddMultiple && (
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  // Make sure the temporary guest is created properly
+                  const tempGuest = {
+                    id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                    name: '',
+                    contact: '',
+                    email: '',
+                    phone: '',
+                    invited: false,
+                    groupId: formData.groupId || (selectedGroup ? selectedGroup._id : '')
+                  };
+                  
+                  // Pass the tempGuest to the parent component
+                  onAddMultiple(tempGuest);
+                  haptic.lightFeedback();
+                } catch (err) {
+                  console.error("Error adding guest to pending list:", err);
+                  setError("Failed to add guest to pending list");
+                  haptic.errorFeedback();
+                }
+              }}
+              disabled={loading}
+              className="btn btn-secondary touch-manipulation"
+            >
+              <span className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Another
+              </span>
+            </button>
+          )}
+          
           <button
             type="submit"
             disabled={loading || !formData.name.trim()}
             className="btn btn-primary touch-manipulation"
           >
-            {loading ? 'Adding...' : 'Add Guest'}
+            {loading ? 'Adding...' : onAddMultiple ? 'Add to List' : 'Add Guest'}
           </button>
         </div>
       </form>
