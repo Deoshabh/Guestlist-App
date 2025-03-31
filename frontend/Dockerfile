@@ -10,7 +10,8 @@ RUN npm install
 # Copy app source code
 COPY . .
 
-# Build the app
+# Build the app - setting CI=false to prevent treating warnings as errors
+ENV CI=false
 RUN npm run build
 
 # Production stage
