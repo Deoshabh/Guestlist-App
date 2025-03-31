@@ -1,185 +1,109 @@
 /**
- * Analytics module with fallback for when GA is blocked
+ * STUB IMPLEMENTATION
+ * 
+ * This is a minimal stub for the analytics module.
+ * It provides basic implementations that don't depend on external services.
+ * 
+ * TODO: This file should eventually be properly implemented with actual analytics functionality.
  */
 
-// Check if analytics is blocked by ad blockers
-const checkAnalyticsBlocked = () => {
-  return new Promise((resolve) => {
-    // Create a test script element
-    const testScript = document.createElement('script');
-    testScript.src = 'https://www.google-analytics.com/analytics.js';
-    testScript.onload = () => resolve(false); // Not blocked
-    testScript.onerror = () => resolve(true); // Blocked
-    
-    // Add a timeout in case the event handlers don't fire
-    setTimeout(() => resolve(true), 1000);
-    
-    // Append the script to the document
-    document.head.appendChild(testScript);
-    
-    // Remove the script after test
-    setTimeout(() => {
-      if (document.head.contains(testScript)) {
-        document.head.removeChild(testScript);
-      }
-    }, 1500);
-  });
-};
+console.warn('[STUB] analytics.js is a stub implementation. Replace with proper implementation.');
 
-// Polyfill for gtag function to prevent undefined errors
-const initGtagPolyfill = () => {
-  // Create a dummy gtag function if it doesn't exist to prevent errors
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = window.gtag || function() {
-    try {
-      window.dataLayer.push(arguments);
-    } catch (e) {
-      console.warn('Analytics error:', e);
-    }
-  };
-};
-
-// Run the polyfill immediately to prevent 'undefined' errors
-initGtagPolyfill();
-
-// Initialize analytics
-const isEnabled = (() => {
-  try {
-    // Check if analytics is explicitly disabled
-    if (localStorage.getItem('analytics_opt_out') === 'true') {
-      console.log('Analytics: Disabled by user preference');
-      return false;
-    }
-    
-    // Respect Do Not Track setting
-    if (navigator.doNotTrack === '1' || window.doNotTrack === '1') {
-      console.log('Analytics: Respecting Do Not Track setting');
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.warn('Analytics: Error during initialization check', error);
-    return false;
-  }
-})();
-
-// Placeholder for tracking status
-let isBlocked = false;
 let isInitialized = false;
+let isEnabled = false;
+let isBlocked = false;
 
-// Initialize Google Analytics with error handling
-const initialize = async (trackingId) => {
-  if (!isEnabled) return false;
+/**
+ * Initialize analytics
+ * @param {string} id - Analytics ID
+ * @returns {Promise<boolean>} Promise that resolves to whether initialization was successful
+ */
+const init = async (id = 'G-03XW3FWG7L') => {
+  console.warn('[STUB] analytics.init called with ID:', id);
   
+  // Check if analytics might be blocked
   try {
-    // Check if analytics is blocked
-    isBlocked = await checkAnalyticsBlocked();
+    const testImg = document.createElement('img');
+    testImg.src = 'https://www.google-analytics.com/collect?v=1&t=event&tid=UA-TEST&cid=555&ec=test&ea=test';
+    testImg.style.display = 'none';
+    document.body.appendChild(testImg);
     
-    if (isBlocked) {
-      console.log('Analytics: Blocked by browser or extension - using dummy implementation');
-      // Still provide analytics API surface that does nothing
-      initGtagPolyfill();
-      return false;
-    }
-    
-    // Ensure gtag function exists
-    initGtagPolyfill();
-    
-    // Configure GA
-    window.gtag('js', new Date());
-    window.gtag('config', trackingId, {
-      'send_page_view': false,
-      'anonymize_ip': true
-    });
-    
-    // Dynamically load the GA script
-    try {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${trackingId}`;
-      script.onerror = () => {
-        console.warn('Analytics: Failed to load GA script - possibly blocked');
-        isBlocked = true;
-      };
-      document.head.appendChild(script);
-    } catch (scriptError) {
-      console.warn('Analytics: Error loading script', scriptError);
+    testImg.onerror = () => {
       isBlocked = true;
-      return false;
-    }
+      console.warn('Analytics appears to be blocked by the browser or an extension');
+    };
     
-    isInitialized = true;
-    return true;
-  } catch (error) {
-    console.warn('Analytics: Failed to initialize', error);
-    isBlocked = true;
-    return false;
+    setTimeout(() => {
+      if (testImg.parentNode) {
+        document.body.removeChild(testImg);
+      }
+    }, 500);
+  } catch (e) {
+    // Ignore errors in the detection
   }
-};
-
-// Create a safe wrapper for initialization
-const init = (trackingId) => {
-  try {
-    return initialize(trackingId);
-  } catch (error) {
-    console.error('Analytics initialization error:', error);
-    isBlocked = true;
-    return Promise.resolve(false);
-  }
-};
-
-// Safely track page views
-const pageView = (path) => {
-  if (!isEnabled || isBlocked) return;
   
-  try {
-    window.gtag('event', 'page_view', {
-      page_path: path
-    });
-  } catch (error) {
-    console.warn('Analytics: Error tracking page view', error);
-  }
+  // In a real implementation, this would load the analytics script
+  isInitialized = true;
+  isEnabled = true;
+  
+  return Promise.resolve(true);
 };
 
-// Safely track events
+/**
+ * Track a page view
+ * @param {string} path - Page path
+ * @param {string} title - Page title
+ */
+const pageView = (path, title) => {
+  if (!isInitialized || isBlocked) return;
+  console.warn(`[STUB] analytics.pageView: ${title} (${path})`);
+};
+
+/**
+ * Track an event
+ * @param {string} category - Event category
+ * @param {string} action - Event action
+ * @param {string} label - Event label
+ * @param {number} value - Event value
+ */
 const event = (category, action, label, value) => {
-  if (!isEnabled || isBlocked) return;
-  
-  try {
-    window.gtag('event', action, {
-      'event_category': category,
-      'event_label': label,
-      'value': value
-    });
-  } catch (error) {
-    console.warn('Analytics: Error tracking event', error);
-  }
+  if (!isInitialized || isBlocked) return;
+  console.warn(`[STUB] analytics.event: ${category} / ${action} / ${label} ${value ? `/ ${value}` : ''}`);
 };
 
-// Allow users to opt out
-const optOut = () => {
-  try {
-    localStorage.setItem('analytics_opt_out', 'true');
-    console.log('Analytics: User opted out');
-  } catch (error) {
-    console.warn('Analytics: Error setting opt-out', error);
-  }
-};
-
-// Allow users to opt in
+/**
+ * Opt in to analytics
+ */
 const optIn = () => {
+  isEnabled = true;
+  console.warn('[STUB] User opted in to analytics');
+  
+  // In a real implementation, this would set a cookie or local storage value
   try {
     localStorage.removeItem('analytics_opt_out');
-    console.log('Analytics: User opted in');
-  } catch (error) {
-    console.warn('Analytics: Error setting opt-in', error);
+  } catch (e) {
+    // Ignore storage errors
   }
 };
 
-export default {
-  initialize,
-  init, // Add the init method that was missing
+/**
+ * Opt out of analytics
+ */
+const optOut = () => {
+  isEnabled = false;
+  console.warn('[STUB] User opted out of analytics');
+  
+  // In a real implementation, this would set a cookie or local storage value
+  try {
+    localStorage.setItem('analytics_opt_out', 'true');
+  } catch (e) {
+    // Ignore storage errors
+  }
+};
+
+// Export analytics functions
+const analytics = {
+  init,
   pageView,
   event,
   optOut,
@@ -188,3 +112,5 @@ export default {
   isEnabled: () => isEnabled && !isBlocked,
   isInitialized: () => isInitialized
 };
+
+export default analytics;
