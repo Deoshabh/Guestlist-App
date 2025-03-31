@@ -2,38 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile browsers */
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-<<<<<<< HEAD
 @layer base {
-  /* Enable smooth scrolling for better UX */
-  html {
-    scroll-behavior: smooth;
+  html, body {
     height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    position: relative;
   }
   
-  /* Ensure full height for body and root */
-  body, #root {
-    min-height: 100%;
+  #root {
     height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
   }
   
-  /* Safe area for iOS devices */
-  .h-safe-area {
-    height: env(safe-area-inset-bottom, 0);
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+  
+  /* Safe area insets for iOS */
+  body {
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  }
+  
+  /* Add padding to the bottom to account for bottom nav bar */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  /* Fix iOS height issues when address bar is present */
+  .h-screen {
+    height: 100vh; /* Fallback */
+    height: -webkit-fill-available;
+  }
+  
+  /* Add margin to the bottom for safe area */
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0);
   }
   
   /* Improve tap highlight color for mobile */
@@ -71,153 +84,101 @@ code {
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400 dark:bg-gray-500;
   }
+  
+  /* Add momentum scrolling for iOS */
+  .scrollable {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll;
+  }
 }
 
-=======
->>>>>>> parent of 64b458f (New UI)
 @layer components {
+  .input {
+    @apply bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white shadow-sm;
+  }
+  
   .btn {
-    @apply px-4 py-2 rounded-md transition-colors duration-200 font-medium;
+    @apply px-4 py-2 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ease-in-out;
   }
   
   .btn-primary {
-    @apply bg-primary text-white hover:bg-primary-dark;
-  }
-  
-  .btn-secondary {
-    @apply bg-secondary text-white hover:bg-secondary-dark;
+    @apply bg-primary text-white hover:bg-primary-dark dark:hover:bg-primary-light focus:ring-primary;
   }
   
   .btn-outline {
-    @apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700;
+    @apply bg-transparent border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-300 dark:focus:ring-gray-600;
   }
   
-  .input {
-    @apply px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white;
+  .btn-sm {
+    @apply px-3 py-1 text-sm;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-lg;
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-md dark:bg-gray-800 p-4 transition-all duration-200;
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-700;
   }
   
-  .touch-manipulation {
-    touch-action: manipulation;
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-lg;
   }
   
-  /* Responsive table improvements */
-  @media (max-width: 640px) {
-    .responsive-table td {
-      @apply py-3;
-    }
-    
-    .responsive-table button {
-      @apply my-1 w-full;
-    }
+  /* WhatsApp themed preview */
+  .whatsapp-preview {
+    @apply bg-green-50 dark:bg-green-900/30 p-3 rounded-lg border border-green-200 dark:border-green-800 text-gray-700 dark:text-gray-200;
   }
   
-  /* Mobile optimizations for modals */
-  @media (max-width: 640px) {
-    .btn {
-      @apply py-3; /* Larger touch target */
-    }
-    
-    .input {
-      @apply py-3; /* Larger touch target */
-    }
-  }
-}
-
-/* Improved scrollbar for dark mode */
-@layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
+  .whatsapp-composer {
+    border-left: 4px solid #25D366;
   }
   
-  .dark .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  /* Floating Action Button */
+  .fab {
+    @apply fixed bottom-20 right-4 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center z-30;
   }
   
-  .dark .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-gray-800;
+  .fab-menu {
+    @apply fixed bottom-36 right-4 flex flex-col-reverse items-end space-y-reverse space-y-2 z-30;
   }
   
-  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-600 rounded-full;
+  .fab-item {
+    @apply flex items-center bg-white dark:bg-gray-800 rounded-full shadow-md overflow-hidden transform transition-all duration-200 ease-in-out;
   }
   
-  .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500;
+  .fab-label {
+    @apply px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap;
   }
   
+  .fab-icon {
+    @apply w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center flex-shrink-0;
+  }
+  
+  /* Animation classes */
   .animate-fadeIn {
     animation: fadeIn 0.3s ease-in-out;
   }
   
-  .animate-progress {
-    animation: progressBar 2s infinite linear;
-    width: 100%;
-  }
-<<<<<<< HEAD
-  
-  .animate-scaleIn {
-    animation: scaleIn 0.3s ease-out;
+  .animate-slideUp {
+    animation: slideUp 0.3s ease-in-out;
   }
   
-  .animate-pulse-subtle {
-    animation: pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  .animate-slideDown {
+    animation: slideDown 0.3s ease-in-out;
   }
   
-  /* Additional utilities for mobile optimization */
-  .safe-bottom {
-    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 1rem);
+  .animate-spin {
+    animation: spin 1s linear infinite;
   }
   
-  /* Ripple effect */
-  .ripple {
-    position: absolute;
-    border-radius: 50%;
-    transform: scale(0);
-    background-color: rgba(255, 255, 255, 0.3);
-    pointer-events: none;
-    animation: rippleAnimation 0.6s linear;
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-in-out;
   }
   
-  .ripple-button {
-    position: relative;
-    overflow: hidden;
-  }
-  
-  /* New animations for enhanced UX */
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  
-  @keyframes progressBar {
-    from { width: 0; }
-    to { width: 100%; }
-  }
-  
-  @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-  
-  @keyframes pulseSubtle {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-  
-  @keyframes rippleAnimation {
-    from {
-      transform: scale(0);
-      opacity: 0.5;
-    }
-    to {
-      transform: scale(2);
-      opacity: 0;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   
   @keyframes slideUp {
@@ -225,111 +186,33 @@ code {
     to { transform: translateY(0); opacity: 1; }
   }
   
-  .animate-slideUp {
-    animation: slideUp 0.3s ease-out forwards;
-  }
-  
   @keyframes slideDown {
     from { transform: translateY(-20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
   
-  .animate-slideDown {
-    animation: slideDown 0.3s ease-out forwards;
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
   
-  /* Additional dark mode color for hover states */
-  .dark .dark\:hover\:bg-gray-750:hover {
-    background-color: rgba(55, 65, 81, 0.7);
-  }
-}
-
-/* Mobile responsiveness improvements */
-
-/* Fix viewport issues on mobile */
-@viewport {
-  width: device-width;
-  initial-scale: 1;
-}
-
-/* Better handling for notched phones */
-.safe-area-top {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-.safe-area-left {
-  padding-left: env(safe-area-inset-left, 0px);
-}
-
-.safe-area-right {
-  padding-right: env(safe-area-inset-right, 0px);
-}
-
-/* Improved touch targets for mobile */
-@media (max-width: 768px) {
-  button, 
-  .btn, 
-  input[type="checkbox"], 
-  input[type="radio"],
-  .input,
-  select {
-    min-height: 44px; /* Apple's recommended minimum touch target size */
+  @keyframes slideInRight {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
   }
   
-  /* Prevent text from becoming too small */
-  body {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
   }
   
-  /* Fix for inputs zooming in Safari on iOS */
-  input, select, textarea {
-    font-size: 16px;
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
   }
   
-  /* Improve table rendering on small screens */
-  table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  /* Touch manipulation optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
   }
-  
-  /* Better card layouts on small screens */
-  .card {
-    width: 100%;
-    margin-bottom: 16px;
-  }
-  
-  /* Fix modal positioning on mobile */
-  .fixed {
-    position: fixed !important;
-  }
-  
-  /* Prevent content from being hidden behind fixed navbars */
-  .pb-safe {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 70px);
-  }
-}
-
-/* Fix for iOS momentum scrolling */
-.scroll-container {
-  -webkit-overflow-scrolling: touch;
-  overflow-y: scroll;
-=======
-}
-
-/* New animations for enhanced UX */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes progressBar {
-  from { width: 0; }
-  to { width: 100%; }
->>>>>>> parent of 64b458f (New UI)
 }
