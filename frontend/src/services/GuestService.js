@@ -1,154 +1,150 @@
-/**
- * Guest Service - Handles guest data operations with the API and offline fallback
- * Implements the missing getGuests function and fixes API error handling
- */
-
-import axios from 'axios';
-import { getAllGuests, saveGuests, STORES, safeTransaction } from '../utils/db';
-import { handleApiError, handleIndexedDBError } from '../utils/apiErrorHandler';
-
-// Base API URL with environment-aware configuration
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+import apiService from './ApiService';
+import { handleApiError } from '../utils/errorHandler';
 
 class GuestService {
+  constructor() {
+    this.apiService = apiService;
+  }
+
   /**
-   * Fetch guests from the API with offline fallback
-   * Implements the missing getGuests function that was causing errors
+   * Fetch all guests
+   * @returns {Promise<Array>} List of guests
    */
   async getGuests() {
     try {
-      console.log('Fetching guests from API...');
-      const response = await axios.get(`${API_URL}/guests`);
-      
-      // Validate the response data
-      if (!response.data || !Array.isArray(response.data)) {
-        console.error('Invalid API response format for guests:', response.data);
-        throw new Error('Invalid API response format');
-      }
-      
-      // Cache the guests for offline use
-      await saveGuests(response.data);
-      return response.data;
+      return await this.apiService.getGuests();
     } catch (error) {
-      // Use handleApiError from our utility
-      return handleApiError(error, 'fetchGuests', {}, async () => {
-        // Fallback to local data if available
-        console.log('Falling back to local guest data...');
-        const localGuests = await getAllGuests();
-        if (localGuests && localGuests.length > 0) {
-          console.log(`Retrieved ${localGuests.length} guests from local database`);
-          return localGuests;
-        }
-        throw error; // Re-throw if no local data
-      });
+      const errorInfo = handleApiError(error, 'fetching guests');
+      console.error('Failed to fetch guests:', errorInfo.message);
+      throw errorInfo;
     }
   }
 
   /**
-   * Fetch guest groups with enhanced error handling
+   * Fetch a single guest by ID
+   * @param {string} id Guest ID
+   * @returns {Promise<Object>} Guest data
    */
-  async getGuestGroups() {
+  async getGuest(id) {
     try {
-      console.log('Fetching guest groups from API...');
-      const response = await axios.get(`${API_URL}/guests/groups`);
-      
-      // Validate response format to catch "ct" type errors
-      if (!response.data || typeof response.data === 'string' && response.data.length < 5) {
-        console.error('Invalid API response format for guest groups:', response.data);
-        throw new Error('Invalid API response format');
-      }
-      
-      // Save groups to IndexedDB for offline access
-      try {
-        await safeTransaction(STORES.GUEST_GROUPS, 'readwrite', (store, resolve) => {
-          // Clear existing groups
-          store.clear();
-          
-          // Add all groups
-          const groups = Array.isArray(response.data) ? response.data : [response.data];
-          const promises = groups.map(group => new Promise((res, rej) => {
-            if (!group._id) {
-              group._id = `group_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            }
-            const request = store.add(group);
-            request.onsuccess = res;
-            request.onerror = rej;
-          }));
-          
-          Promise.allSettled(promises).then(() => {
-            console.log(`Saved ${groups.length} guest groups to IndexedDB`);
-            resolve(true);
-          });
-        });
-      } catch (dbError) {
-        console.error('Error saving guest groups to IndexedDB:', dbError);
-        // Continue even if saving fails - we still have the API data
-      }
-      
-      return response.data;
+      return await this.apiService.getGuest(id);
     } catch (error) {
-      // Use our error handler utility with fallback to local data
-      return handleApiError(error, 'fetchGuestGroups', {}, async () => {
-        // Fallback to local data
-        console.log('Falling back to local guest groups...');
-        try {
-          return await safeTransaction(STORES.GUEST_GROUPS, 'readonly', (store, resolve, reject) => {
-            const request = store.getAll();
-            request.onsuccess = () => {
-              const groups = request.result;
-              console.log(`Retrieved ${groups.length} guest groups from local database`);
-              resolve(groups);
-            };
-            request.onerror = (event) => reject(event.target.error);
-          });
-        } catch (dbError) {
-          // Handle IndexedDB errors specifically
-          handleIndexedDBError(dbError);
-          return []; // Return empty array as last resort to prevent UI errors
-        }
-      });
+      const errorInfo = handleApiError(error, 'fetching guest details');
+      console.error(`Failed to fetch guest ${id}:`, errorInfo.message);
+      throw errorInfo;
     }
   }
 
   /**
-   * Add a new guest with improved error handling
+   * Create a new guest
+   * @param {Object} guestData Guest data
+   * @returns {Promise<Object>} Created guest
    */
-  async addGuest(guest) {
+  async createGuest(guestData) {
     try {
-      const response = await axios.post(`${API_URL}/guests`, guest);
-      return response.data;
+      return await this.apiService.createGuest(guestData);
     } catch (error) {
-      return handleApiError(error, 'addGuest', guest);
+      const errorInfo = handleApiError(error, 'creating guest');
+      console.error('Failed to create guest:', errorInfo.message);
+      throw errorInfo;
     }
   }
 
   /**
-   * Update an existing guest with improved error handling
+   * Update an existing guest
+   * @param {string} id Guest ID
+   * @param {Object} guestData Updated guest data
+   * @returns {Promise<Object>} Updated guest
    */
-  async updateGuest(id, guest) {
+  async updateGuest(id, guestData) {
     try {
-      const response = await axios.put(`${API_URL}/guests/${id}`, guest);
-      return response.data;
+      return await this.apiService.updateGuest(id, guestData);
     } catch (error) {
-      return handleApiError(error, 'updateGuest', { id, ...guest });
+      const errorInfo = handleApiError(error, 'updating guest');
+      console.error(`Failed to update guest ${id}:`, errorInfo.message);
+      throw errorInfo;
     }
   }
 
   /**
-   * Delete a guest with improved error handling
+   * Delete a guest
+   * @param {string} id Guest ID
+   * @returns {Promise<Object>} Response data
    */
   async deleteGuest(id) {
     try {
-      const response = await axios.delete(`${API_URL}/guests/${id}`);
-      return response.data;
+      return await this.apiService.deleteGuest(id);
     } catch (error) {
-      return handleApiError(error, 'deleteGuest', { id });
+      const errorInfo = handleApiError(error, 'deleting guest');
+      console.error(`Failed to delete guest ${id}:`, errorInfo.message);
+      throw errorInfo;
+    }
+  }
+
+  /**
+   * Get all guest groups
+   * @returns {Promise<Array>} List of guest groups
+   */
+  async getGuestGroups() {
+    try {
+      return await this.apiService.getGuestGroups();
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'fetching guest groups');
+      console.error('Failed to fetch guest groups:', errorInfo.message);
+      throw errorInfo;
+    }
+  }
+
+  /**
+   * Create a new guest group
+   * @param {Object} groupData Group data
+   * @returns {Promise<Object>} Created group
+   */
+  async createGuestGroup(groupData) {
+    try {
+      return await this.apiService.createGuestGroup(groupData);
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'creating guest group');
+      console.error('Failed to create guest group:', errorInfo.message);
+      throw errorInfo;
+    }
+  }
+
+  /**
+   * Update an existing guest group
+   * @param {string} id Group ID
+   * @param {Object} groupData Updated group data
+   * @returns {Promise<Object>} Updated group
+   */
+  async updateGuestGroup(id, groupData) {
+    try {
+      return await this.apiService.updateGuestGroup(id, groupData);
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'updating guest group');
+      console.error(`Failed to update guest group ${id}:`, errorInfo.message);
+      throw errorInfo;
+    }
+  }
+
+  /**
+   * Delete a guest group
+   * @param {string} id Group ID
+   * @returns {Promise<Object>} Response data
+   */
+  async deleteGuestGroup(id) {
+    try {
+      return await this.apiService.deleteGuestGroup(id);
+    } catch (error) {
+      const errorInfo = handleApiError(error, 'deleting guest group');
+      console.error(`Failed to delete guest group ${id}:`, errorInfo.message);
+      throw errorInfo;
     }
   }
 }
 
-// Export a singleton instance
-export default new GuestService();
+// Create and export a singleton instance
+const guestService = new GuestService();
+export default guestService;
 
-// Also export the class for testing or customization
+// Also export the class for testing
 export { GuestService };
