@@ -55,7 +55,7 @@ export const getContacts = async () => {
  * @param {Object} guest - Guest object to save
  * @returns {Promise<Object>} A promise that resolves to the same guest object
  */
-const saveGuest = async (guest) => {
+export const saveGuest = async (guest) => {
   console.log('Stub implementation of saveGuest called');
   if (!guest._id) {
     guest._id = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -69,7 +69,7 @@ const saveGuest = async (guest) => {
  * @param {Array} guests - Array of guest objects
  * @returns {Promise<number>} A promise that resolves to the number of guests
  */
-const saveGuests = async (guests) => {
+export const saveGuests = async (guests) => {
   console.log('Stub implementation of saveGuests called');
   return Promise.resolve(guests.length);
 };
@@ -79,7 +79,7 @@ const saveGuests = async (guests) => {
  * 
  * @returns {Promise<Array>} A promise that resolves to an empty array
  */
-const getAllGuests = async () => {
+export const getAllGuests = async () => {
   console.log('Stub implementation of getAllGuests called');
   return Promise.resolve([]);
 };
@@ -90,7 +90,7 @@ const getAllGuests = async () => {
  * @param {Object} group - Group object to save
  * @returns {Promise<Object>} A promise that resolves to the same group object
  */
-const saveGroup = async (group) => {
+export const saveGroup = async (group) => {
   console.log('Stub implementation of saveGroup called');
   if (!group._id) {
     group._id = `group_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -104,7 +104,7 @@ const saveGroup = async (group) => {
  * @param {Array} groups - Array of group objects
  * @returns {Promise<boolean>} A promise that resolves to true
  */
-const saveGroups = async (groups) => {
+export const saveGroups = async (groups) => {
   console.log('Stub implementation of saveGroups called with:', groups);
   return Promise.resolve(true);
 };
@@ -115,7 +115,7 @@ const saveGroups = async (groups) => {
  * @param {string} groupId - ID of group to delete
  * @returns {Promise<boolean>} A promise that resolves to true
  */
-const deleteGroup = async (groupId) => {
+export const deleteGroup = async (groupId) => {
   console.log('Stub implementation of deleteGroup called with groupId:', groupId);
   return Promise.resolve(true);
 };
@@ -125,7 +125,7 @@ const deleteGroup = async (groupId) => {
  * 
  * @returns {Promise<Array>} A promise that resolves to an empty array
  */
-const getGroups = async () => {
+export const getGroups = async () => {
   console.log('Stub implementation of getGroups called');
   return Promise.resolve([]);
 };
@@ -137,7 +137,7 @@ const getGroups = async () => {
  * @param {Object} data - Action data
  * @returns {Promise<boolean>} A promise that resolves to true
  */
-const queueAction = async (action, data) => {
+export const queueAction = async (action, data) => {
   console.log(`Stub implementation of queueAction called for action: ${action}`, data);
   return Promise.resolve(true);
 };
@@ -147,7 +147,7 @@ const queueAction = async (action, data) => {
  * 
  * @returns {Promise<Array>} A promise that resolves to an empty array
  */
-const getPendingActions = async () => {
+export const getPendingActions = async () => {
   console.log('Stub implementation of getPendingActions called');
   return Promise.resolve([]);
 };
@@ -158,7 +158,7 @@ const getPendingActions = async () => {
  * @param {string} id - ID of action to remove
  * @returns {Promise<boolean>} A promise that resolves to true
  */
-const removePendingAction = async (id) => {
+export const removePendingAction = async (id) => {
   console.log('Stub implementation of removePendingAction called with id:', id);
   return Promise.resolve(true);
 };
