@@ -20,15 +20,22 @@ const isProd = NODE_ENV === 'production';
 // Configure CORS for production
 const corsOptions = {
   origin: isProd ? (process.env.ALLOWED_ORIGINS?.split(',') || '*') : '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 };
+
+// Apply CORS middleware before other middleware to handle preflight requests
+app.use(cors(corsOptions));
+
+// Global OPTIONS handler for preflight requests
+app.options('*', cors(corsOptions));
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(fileUpload());
-app.use(cors(corsOptions));
 
 // Add debug middleware in development mode
 if (!isProd && process.env.DEBUG_API === 'true') {

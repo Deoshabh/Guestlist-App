@@ -33,8 +33,8 @@
         "NODE_ENV": "production",
         "MONGODB_URI": "mongodb://mongodb:27017/guest-app",
         "JWT_SECRET": "${JWT_SECRET}",
-        "PORT": "5000",
-        "ALLOWED_ORIGINS": "https://your-frontend-domain.com"
+        "PORT": "5002",
+        "ALLOWED_ORIGINS": "https://bhaujanvypar.com,https://www.bhaujanvypar.com,http://localhost:3000"
       }
     }
   }
