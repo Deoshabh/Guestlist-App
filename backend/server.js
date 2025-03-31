@@ -1,3 +1,5 @@
+// backend/server.js
+
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -17,7 +19,7 @@ const isProd = NODE_ENV === 'production';
 
 // Configure CORS for production
 const corsOptions = {
-  origin: isProd ? process.env.ALLOWED_ORIGINS?.split(',') || '*' : '*',
+  origin: isProd ? (process.env.ALLOWED_ORIGINS?.split(',') || '*') : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 };
@@ -34,11 +36,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Connect to MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guestlist';
 mongoose.connect(MONGODB_URI)
-.then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
-.catch(err => console.error('MongoDB connection error:', err));
+  .then(() => console.log(`MongoDB connected to ${isProd ? 'production' : 'development'} database`))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
-app.use('/api', healthRoutes); // No auth required for health checks
+app.use('/api', healthRoutes); // Health checks without auth
 app.use('/api/auth', authRoutes);
 app.use('/api/guests', authMiddleware, guestRoutes);
 
@@ -53,12 +55,12 @@ app.get('/api/health', (req, res) => {
 
 // Serve static files in production
 if (isProd) {
-  // Serve frontend static files
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  // Serve frontend static files from /usr/share/nginx/html
+  app.use(express.static('/usr/share/nginx/html'));
   
-  // Handle React routing, return all requests to React app
+  // Catch-all route to serve index.html for client-side routing
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+    res.sendFile(path.join('/usr/share/nginx/html', 'index.html'));
   });
 }
 
