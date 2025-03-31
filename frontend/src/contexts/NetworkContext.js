@@ -83,14 +83,14 @@ export function NetworkProvider({ children, apiBaseUrl = '/api' }) {
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, apiBaseUrl, hasConnectivity, isOnline, toast]);
+  }, [isConnecting, apiBaseUrl, hasConnectivity, isOnline, toast, notifyListeners]);
 
   const addListener = useCallback((callback) => {
     if (typeof callback === 'function' && !listeners.current.includes(callback)) {
       listeners.current.push(callback);
     }
     return () => removeListener(callback);
-  }, []);
+  }, [removeListener]);
 
   const removeListener = useCallback((callback) => {
     listeners.current = listeners.current.filter(listener => listener !== callback);
@@ -106,7 +106,7 @@ export function NetworkProvider({ children, apiBaseUrl = '/api' }) {
         console.error('Error in connectivity listener:', error);
       }
     });
-  }, []);
+  }, [getStatus]);
 
   const getStatus = useCallback(() => {
     return {

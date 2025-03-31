@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import haptic from '../utils/haptic';
 import db from '../utils/db';
@@ -89,7 +89,6 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   }, [isOpen]);
 
   // Handle clicking outside to close
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     function handleClickOutside(event) {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -103,10 +102,10 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Handle escape key to close modal
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Handle escape key to close modal
   useEffect(() => {
     function handleEscapeKey(event) {
       if (event.key === 'Escape') {
@@ -120,8 +119,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
         document.removeEventListener('keydown', handleEscapeKey);
       };
     }
-  }, [isOpen]);
-
+  }, [isOpen, handleClose]);
   // Real-time name validation
   const validateName = (value) => {
     if (!value.trim()) {
@@ -176,14 +174,14 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (!loading) {
       // Provide haptic feedback
       haptic.lightFeedback();
       // Start exit animation
       onClose();
     }
-  };
+  }, [loading, onClose]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -290,7 +288,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     }
   };
   
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd = () => {
     if (isSwiping) {
       // If swiped down more than 100px, close the modal
       if (swipeOffset > 100) {
@@ -325,9 +323,12 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
         {/* Modal panel */}
         <div 
           ref={modalRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           className={`inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full ${
             formVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
+          } ${isSwiping ? `transform translate-y-[${swipeOffset}px]` : ''}`}
         >
           {/* Swipe handle indicator for mobile */}
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-2 mb-1"></div>
