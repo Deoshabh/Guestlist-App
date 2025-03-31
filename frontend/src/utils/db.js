@@ -22,6 +22,53 @@ export const STORES = {
 };
 
 /**
+ * Safe transaction helper to verify object store exists before transaction
+ * @param {string} storeName - The name of the object store
+ * @param {string} mode - Transaction mode ('readonly' or 'readwrite')
+ * @param {Function} callback - Callback function to execute with the store
+ * @returns {Promise<any>} - Promise that resolves with the callback result
+ */
+export const safeTransaction = async (storeName, mode, callback) => {
+  console.log(`[STUB] safeTransaction called for store: ${storeName}, mode: ${mode}`);
+  
+  // In a real implementation, this would create an IndexedDB transaction
+  // For this stub, we just execute the callback with mock objects
+  const mockStore = {
+    add: (item) => ({ onsuccess: null, onerror: null }),
+    put: (item) => ({ onsuccess: null, onerror: null }),
+    delete: (id) => ({ onsuccess: null, onerror: null }),
+    get: (id) => ({ onsuccess: null, onerror: null }),
+    getAll: () => ({ onsuccess: null, onerror: null }),
+    clear: () => ({ onsuccess: null, onerror: null }),
+    createIndex: () => {}
+  };
+  
+  const mockTransaction = {
+    objectStore: () => mockStore,
+    oncomplete: null,
+    onerror: null
+  };
+  
+  try {
+    // Execute the callback with our mock objects
+    return await new Promise((resolve, reject) => {
+      try {
+        callback(mockStore, resolve, reject, mockTransaction);
+        // Most operations will call resolve directly, but we'll resolve with a default value as fallback
+        resolve(mode === 'readonly' ? [] : true);
+      } catch (error) {
+        console.error('[STUB] Error in safeTransaction callback:', error);
+        reject(error);
+      }
+    });
+  } catch (error) {
+    console.error('[STUB] safeTransaction failed:', error);
+    // Return sensible defaults based on the store and mode
+    return storeName === STORES.GUESTS || storeName === STORES.GUEST_GROUPS ? [] : false;
+  }
+};
+
+/**
  * Stub function that pretends to save a contact to the database
  * 
  * @param {Object} contact - Contact object to save
@@ -181,7 +228,10 @@ const dbOperations = {
   
   // Contact operations
   saveContact,
-  getContacts
+  getContacts,
+  
+  // Transaction helper
+  safeTransaction
 };
 
 // Export the object as the default export
