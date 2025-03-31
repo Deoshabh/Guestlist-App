@@ -6,20 +6,49 @@ import { toggleDesktopView } from '../utils/mobileCompatibility';
  */
 const ViewModeToggle = ({ className = '' }) => {
   const [isDesktopMode, setIsDesktopMode] = useState(false);
+  const [showToggle, setShowToggle] = useState(false);
   
   useEffect(() => {
-    const desktopForced = localStorage.getItem('forceDesktopView') === 'true';
-    setIsDesktopMode(desktopForced);
+    // Check if this is a mobile device that should show the toggle
+    const isMobileDevice = window.innerWidth <= 768 || 
+                          (navigator && navigator.maxTouchPoints > 0) ||
+                          'ontouchstart' in window;
+    
+    if (isMobileDevice) {
+      setShowToggle(true);
+      const desktopForced = localStorage.getItem('forceDesktopView') === 'true';
+      setIsDesktopMode(desktopForced);
+    } else {
+      setShowToggle(false);
+    }
   }, []);
   
-  // Only show on mobile devices
-  if (window.innerWidth > 768 && !navigator?.maxTouchPoints) {
+  // Don't render anything if we shouldn't show the toggle
+  if (!showToggle) {
     return null;
   }
   
   const handleToggle = () => {
-    const newMode = toggleDesktopView();
-    setIsDesktopMode(newMode);
+    try {
+      console.log('Toggling desktop/mobile view');
+      const newMode = toggleDesktopView();
+      setIsDesktopMode(newMode);
+    } catch (err) {
+      console.error('Error toggling view mode:', err);
+      
+      // Fallback toggle if the utility function fails
+      const currentValue = localStorage.getItem('forceDesktopView');
+      const newValue = currentValue === 'true' ? null : 'true';
+      
+      if (newValue) {
+        localStorage.setItem('forceDesktopView', newValue);
+      } else {
+        localStorage.removeItem('forceDesktopView');
+      }
+      
+      alert(newValue ? 'Switching to desktop view...' : 'Switching to mobile view...');
+      window.location.reload();
+    }
   };
   
   return (

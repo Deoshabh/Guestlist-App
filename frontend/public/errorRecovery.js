@@ -7,45 +7,96 @@
   const RECOVERY_MARKER = 'errorRecoveryAttempted';
   const DESKTOP_FORCE_KEY = 'forceDesktopView';
   
+  // First, add protection from common mobile errors
+  function protectArrayMethods() {
+    try {
+      // Check if Array.prototype.map is being called on null or undefined
+      const originalMap = Array.prototype.map;
+      Array.prototype.map = function(...args) {
+        if (!this) {
+          console.warn('Protected map() call on null/undefined');
+          return [];
+        }
+        return originalMap.apply(this, args);
+      };
+      
+      // Also protect other common array methods
+      ['filter', 'forEach', 'find', 'some', 'every'].forEach(method => {
+        const original = Array.prototype[method];
+        Array.prototype[method] = function(...args) {
+          if (!this) {
+            console.warn(`Protected ${method}() call on null/undefined`);
+            return method === 'filter' ? [] : undefined;
+          }
+          return original.apply(this, args);
+        };
+      });
+      
+      console.log('Array method protection applied');
+    } catch (e) {
+      console.error('Error protecting array methods:', e);
+    }
+  }
+  
+  // Run protections immediately
+  protectArrayMethods();
+  
   // Add specific error monitoring for map errors
   window.addEventListener('error', function(event) {
     // Check if it's a map related error
     if (event.error && 
         (event.error.message.includes('map') || 
-         event.error.message.includes('undefined'))) {
+         event.error.message.includes('undefined') ||
+         event.error.message.includes('null'))) {
       
-      console.error('Map function error detected:', event.error);
+      console.error('Critical error detected:', event.error);
       
       // Log additional details
       console.log('Error context:', {
         isMobile: window.innerWidth <= 768,
         url: window.location.href,
-        time: new Date().toISOString()
+        time: new Date().toISOString(),
+        errorType: 'ArrayOperation'
       });
       
-      // Refresh the page after a delay if it's specifically a map error 
-      // and we're on mobile
+      // Check if we need to recover on mobile
       if (window.innerWidth <= 768 && !sessionStorage.getItem('mapErrorRefreshed')) {
-        console.log('First map error encountered, will attempt refresh');
+        console.log('Critical mobile error encountered, applying fixes');
+        
+        // Apply array protections again as a failsafe
+        protectArrayMethods();
+        
         // Mark that we've tried a refresh
         sessionStorage.setItem('mapErrorRefreshed', 'true');
+        
+        // Try forcing desktop view if not already set
+        if (localStorage.getItem(DESKTOP_FORCE_KEY) !== 'true') {
+          localStorage.setItem(DESKTOP_FORCE_KEY, 'true');
+          console.log('Forcing desktop view to improve compatibility');
+        }
         
         // Display a brief message
         const msgEl = document.createElement('div');
         msgEl.style.position = 'fixed';
-        msgEl.style.bottom = '10px';
-        msgEl.style.left = '10px';
-        msgEl.style.right = '10px';
-        msgEl.style.padding = '10px';
+        msgEl.style.top = '50%';
+        msgEl.style.left = '50%';
+        msgEl.style.transform = 'translate(-50%, -50%)';
+        msgEl.style.width = '80%';
+        msgEl.style.maxWidth = '300px';
+        msgEl.style.padding = '20px';
         msgEl.style.background = '#3b82f6';
         msgEl.style.color = 'white';
-        msgEl.style.borderRadius = '5px';
+        msgEl.style.borderRadius = '8px';
         msgEl.style.zIndex = '9999';
         msgEl.style.textAlign = 'center';
-        msgEl.textContent = 'Fixing display issue...';
+        msgEl.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        msgEl.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 8px;">Fixing Display Issue</div>
+          <div>Please wait while we resolve the problem...</div>
+        `;
         document.body.appendChild(msgEl);
         
-        // Reload after 2 seconds
+        // Reload after delay
         setTimeout(function() {
           window.location.reload();
         }, 2000);
@@ -73,7 +124,7 @@
       
       // Check if we're on mobile
       const isMobileDevice = window.innerWidth <= 768 || 
-                             navigator.maxTouchPoints > 0 || 
+                             (navigator && navigator.maxTouchPoints > 0) || 
                              ('ontouchstart' in window);
       
       // Create error UI
@@ -121,21 +172,23 @@
         // Clear only app-related data
         try {
           const keysToPreserve = ['theme', 'language']; // Keep these settings
+          const preservedValues = {};
           
-          // Get all keys to remove
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && !keysToPreserve.includes(key)) {
-              keysToRemove.push(key);
+          // Save the preserved values
+          keysToPreserve.forEach(key => {
+            preservedValues[key] = localStorage.getItem(key);
+          });
+          
+          // Clear all storage
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          // Restore preserved values
+          for (const key in preservedValues) {
+            if (preservedValues[key] !== null) {
+              localStorage.setItem(key, preservedValues[key]);
             }
           }
-          
-          // Remove keys
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-          
-          // Clear session storage
-          sessionStorage.clear();
           
           console.log('App data cleared successfully');
         } catch (e) {

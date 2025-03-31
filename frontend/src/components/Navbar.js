@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import ViewModeToggle from './ViewModeToggle';
+import haptic from '../utils/haptic';
 
 const Navbar = ({ 
-  // Not using isMobile as it appears to be handled by CSS media queries
   darkMode = false,
   toggleDarkMode = () => {},
-  onLogout = () => {},
-  isAuthenticated = false // Add isAuthenticated prop with default value
+  logout = () => {},
+  isAuthenticated = false,
+  isMobile = false
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
+    try {
+      haptic.lightFeedback();
+      setIsMenuOpen(!isMenuOpen);
+    } catch (err) {
+      console.error('Error toggling menu:', err);
+      // Still toggle menu even if haptic fails
+      setIsMenuOpen(!isMenuOpen);
+    }
   };
 
   return (
@@ -27,7 +35,7 @@ const Navbar = ({
           
           {/* Desktop menu - hidden on mobile since we have bottom nav */}
           <div className="hidden md:flex items-center space-x-3">
-            {/* View mode toggle visible on larger screens too */}
+            {/* View mode toggle */}
             <ViewModeToggle className="mr-2" />
             
             <button
@@ -52,7 +60,7 @@ const Navbar = ({
             </button>
             {isAuthenticated && (
               <button 
-                onClick={onLogout}
+                onClick={logout}
                 className="px-4 py-2 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors"
               >
                 <span className="flex items-center">
@@ -98,14 +106,20 @@ const Navbar = ({
       {/* Mobile menu - simplified to avoid duplication with bottom nav */}
       <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} px-2 pb-3 space-y-2 animate-slideDown`}>
         <button 
-          onClick={toggleDarkMode}
+          onClick={() => {
+            toggleDarkMode();
+            toggleMenu();
+          }}
           className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
         >
           {darkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
         {isAuthenticated && (
           <button 
-            onClick={onLogout}
+            onClick={() => {
+              logout();
+              toggleMenu();
+            }}
             className="block w-full px-4 py-3 text-left rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 transition-colors touch-manipulation"
           >
             Logout

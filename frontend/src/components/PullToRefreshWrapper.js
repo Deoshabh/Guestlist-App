@@ -33,21 +33,31 @@ const PullToRefreshWrapper = ({
 
   const handleTouchStart = useCallback((e) => {
     if (disabled || window.scrollY > 5) return;
-    setStartY(e.touches[0].clientY);
-    setIsPulling(true);
+    
+    try {
+      setStartY(e.touches[0].clientY);
+      setIsPulling(true);
+    } catch (err) {
+      console.error('Error in touch start handler:', err);
+    }
   }, [disabled]);
 
   const handleTouchMove = useCallback((e) => {
     if (!isPulling || disabled) return;
     
-    const y = e.touches[0].clientY - startY;
-    
-    // Only allow pulling down, not up
-    if (y > 0) {
-      // Use a logarithmic function to create resistance as user pulls further
-      const newPullY = Math.min(Math.log(y + 1) * 20, pullDistance);
-      setPullY(newPullY);
-    } else {
+    try {
+      const y = e.touches[0].clientY - startY;
+      
+      // Only allow pulling down, not up
+      if (y > 0) {
+        // Use a logarithmic function to create resistance as user pulls further
+        const newPullY = Math.min(Math.log(y + 1) * 20, pullDistance);
+        setPullY(newPullY);
+      } else {
+        setPullY(0);
+      }
+    } catch (err) {
+      console.error('Error in touch move handler:', err);
       setPullY(0);
     }
   }, [isPulling, disabled, startY, pullDistance]);
@@ -55,28 +65,35 @@ const PullToRefreshWrapper = ({
   const handleTouchEnd = useCallback(() => {
     if (!isPulling || disabled) return;
     
-    if (pullY >= pullDistance / 2) {
-      // User pulled enough to trigger refresh
-      setIsRefreshing(true);
-      haptic.mediumFeedback();
-      if (onRefresh) {
-        onRefresh().finally(() => {
-          if (!isLoading) {
-            // After refresh is done, reset if not controlled by isLoading prop
-            setTimeout(() => {
-              setPullY(0);
-              setIsPulling(false);
-              setIsRefreshing(false);
-            }, 500);
-          }
-        });
+    try {
+      if (pullY >= pullDistance / 2) {
+        // User pulled enough to trigger refresh
+        setIsRefreshing(true);
+        haptic.mediumFeedback();
+        
+        if (onRefresh) {
+          onRefresh().finally(() => {
+            if (!isLoading) {
+              // After refresh is done, reset if not controlled by isLoading prop
+              setTimeout(() => {
+                setPullY(0);
+                setIsPulling(false);
+                setIsRefreshing(false);
+              }, 500);
+            }
+          });
+        }
+      } else {
+        // Not pulled enough, reset
+        setPullY(0);
+        setIsPulling(false);
       }
-    } else {
-      // Not pulled enough, reset
+    } catch (err) {
+      console.error('Error in touch end handler:', err);
       setPullY(0);
       setIsPulling(false);
     }
-  }, [isPulling, disabled, pullY, pullDistance, onRefresh, isLoading]);
+  }, [isPulling, disabled, pullY, pullDistance, onRefresh, isLoading, haptic]);
 
   useEffect(() => {
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -97,7 +114,10 @@ const PullToRefreshWrapper = ({
       {/* Pull indicator */}
       <div 
         className={`fixed top-safe-top left-0 right-0 flex justify-center items-center overflow-hidden z-50 transition-all duration-300 bg-primary/10 ${pullY > 0 ? 'visible' : 'invisible'}`}
-        style={{ height: `${pullY}px`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        style={{ 
+          height: `${pullY}px`, 
+          paddingTop: 'env(safe-area-inset-top, 0px)' 
+        }}
       >
         <div className="text-primary flex items-center">
           {isRefreshing || isLoading ? (
@@ -123,7 +143,7 @@ const PullToRefreshWrapper = ({
       
       {/* Content */}
       <div 
-        className="transition-transform duration-300"
+        className="transition-transform duration-300 ease-out"
         style={{ transform: `translateY(${pullY}px)` }}
       >
         {children}
