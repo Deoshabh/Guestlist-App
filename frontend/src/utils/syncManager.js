@@ -175,6 +175,73 @@ class SyncManager {
   }
 }
 
+/**
+ * Function to sync guest groups
+ * @returns {Promise<{synced: number, error?: Error}>}
+ */
+const syncGuestGroups = async () => {
+  try {
+    // Check if there are any pending group actions
+    const pendingActions = await db.getPendingActions();
+    const groupActions = pendingActions.filter(action => 
+      action.action === 'CREATE_GROUP' || 
+      action.action === 'UPDATE_GROUP' || 
+      action.action === 'DELETE_GROUP'
+    );
+    
+    if (groupActions.length === 0) return { synced: 0 };
+    
+    let syncCount = 0;
+    
+    const syncManager = new SyncManager();
+    const apiBaseUrl = syncManager.apiBaseUrl;
+    
+    // Process each action
+    for (const action of groupActions) {
+      try {
+        switch (action.action) {
+          case 'CREATE_GROUP':
+            await axios.post(
+              `${apiBaseUrl}/guest-groups`, 
+              action.data, 
+              { headers: { Authorization: `Bearer ${syncManager.token}` } }
+            );
+            break;
+            
+          case 'UPDATE_GROUP':
+            await axios.put(
+              `${apiBaseUrl}/guest-groups/${action.data.id}`, 
+              action.data.data, 
+              { headers: { Authorization: `Bearer ${syncManager.token}` } }
+            );
+            break;
+            
+          case 'DELETE_GROUP':
+            await axios.delete(
+              `${apiBaseUrl}/guest-groups/${action.data.id}`, 
+              { headers: { Authorization: `Bearer ${syncManager.token}` } }
+            );
+            break;
+        }
+        
+        // Remove the action after it's been processed
+        await db.removePendingAction(action.id);
+        syncCount++;
+      } catch (err) {
+        console.error(`Error processing group action ${action.action}:`, err);
+      }
+    }
+    
+    return { synced: syncCount };
+  } catch (error) {
+    console.error('Error syncing guest groups:', error);
+    return { synced: 0, error };
+  }
+};
+
 // Create and export a singleton instance
 const syncManager = new SyncManager();
+
+// Export the syncManager as default and syncGuestGroups as a named export
+export { syncGuestGroups };
 export default syncManager;

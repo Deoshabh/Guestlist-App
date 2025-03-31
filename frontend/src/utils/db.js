@@ -2,10 +2,11 @@
 
 // Database configuration
 const DB_NAME = 'guest-manager-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   GUESTS: 'guests',
-  PENDING_ACTIONS: 'pendingActions'
+  PENDING_ACTIONS: 'pendingActions',
+  GUEST_GROUPS: 'guestGroups'
 };
 
 // Initialize the database
@@ -35,6 +36,12 @@ const initDB = () => {
           autoIncrement: true 
         });
         pendingStore.createIndex('action', 'action', { unique: false });
+      }
+
+      // Add guest groups store
+      if (!db.objectStoreNames.contains(STORES.GUEST_GROUPS)) {
+        const groupStore = db.createObjectStore(STORES.GUEST_GROUPS, { keyPath: '_id' });
+        groupStore.createIndex('by_name', 'name', { unique: false });
       }
     };
   });
@@ -165,6 +172,107 @@ const removePendingAction = async (id) => {
   });
 };
 
+// Get all guest groups
+const getGroups = async () => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORES.GUEST_GROUPS], 'readonly');
+      const store = transaction.objectStore(STORES.GUEST_GROUPS);
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error('Error getting groups from IndexedDB:', error);
+    return [];
+  }
+};
+
+// Save a guest group
+const saveGroup = async (group) => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORES.GUEST_GROUPS], 'readwrite');
+      const store = transaction.objectStore(STORES.GUEST_GROUPS);
+      const request = store.put(group);
+      
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error('Error saving group to IndexedDB:', error);
+    throw error;
+  }
+};
+
+// Save multiple guest groups
+const saveGroups = async (groups) => {
+  if (!Array.isArray(groups) || groups.length === 0) return;
+  
+  try {
+    const db = await initDB();
+    const transaction = db.transaction([STORES.GUEST_GROUPS], 'readwrite');
+    const store = transaction.objectStore(STORES.GUEST_GROUPS);
+    
+    // Clear existing groups first
+    await new Promise((resolve, reject) => {
+      const clearRequest = store.clear();
+      clearRequest.onsuccess = resolve;
+      clearRequest.onerror = reject;
+    });
+    
+    // Add all groups
+    const promises = groups.map(group => 
+      new Promise((resolve, reject) => {
+        const request = store.add(group);
+        request.onsuccess = resolve;
+        request.onerror = reject;
+      })
+    );
+    
+    await Promise.all(promises);
+  } catch (error) {
+    console.error('Error saving groups to IndexedDB:', error);
+    throw error;
+  }
+};
+
+// Delete a guest group
+const deleteGroup = async (groupId) => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORES.GUEST_GROUPS], 'readwrite');
+      const store = transaction.objectStore(STORES.GUEST_GROUPS);
+      const request = store.delete(groupId);
+      
+      request.onsuccess = () => {
+        resolve();
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error('Error deleting group from IndexedDB:', error);
+    throw error;
+  }
+};
+
 // Define a named const before exporting to avoid anonymous default export warning
 const dbOperations = {
   getAllGuests,
@@ -172,7 +280,11 @@ const dbOperations = {
   saveGuest,
   queueAction,
   getPendingActions,
-  removePendingAction
+  removePendingAction,
+  getGroups,
+  saveGroup,
+  saveGroups,
+  deleteGroup
 };
 
 export default dbOperations;

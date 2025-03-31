@@ -3,9 +3,13 @@ import axios from 'axios';
 import haptic from '../utils/haptic';
 import db from '../utils/db';
 
-const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = '/api' }) => {
-  const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
+const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = '/api', guestGroups = [] }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    contact: '',
+    invited: false,
+    groupId: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
@@ -20,8 +24,12 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
   // Initialize the form values when the guest prop changes
   useEffect(() => {
     if (guest) {
-      setName(guest.name || '');
-      setContact(guest.contact || '');
+      setFormData({
+        name: guest.name || '',
+        contact: guest.contact || '',
+        invited: guest.invited || false,
+        groupId: guest.groupId || ''
+      });
       setNameError('');
     }
   }, [guest]);
@@ -95,8 +103,13 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
 
   const handleNameChange = (e) => {
     const value = e.target.value;
-    setName(value);
+    setFormData({ ...formData, name: value });
     validateName(value);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleClose = () => {
@@ -112,7 +125,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     e.preventDefault();
     setError('');
     
-    if (!validateName(name)) {
+    if (!validateName(formData.name)) {
       haptic.errorFeedback();
       return;
     }
@@ -121,8 +134,10 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
     
     // Prepare update data
     const updateData = {
-      name: name.trim(),
-      contact: contact.trim()
+      name: formData.name.trim(),
+      contact: formData.contact.trim(),
+      invited: formData.invited,
+      groupId: formData.groupId || null
     };
     
     // Check if online
@@ -283,7 +298,7 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
                 ref={nameInputRef}
                 type="text"
                 placeholder="Guest name"
-                value={name}
+                value={formData.name}
                 onChange={handleNameChange}
                 required
                 disabled={loading}
@@ -308,11 +323,55 @@ const EditGuestModal = ({ guest, isOpen, onClose, onUpdate, token, apiBaseUrl = 
                 id="edit-contact"
                 type="text"
                 placeholder="Phone or email"
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
+                value={formData.contact}
+                onChange={handleChange}
+                name="contact"
                 disabled={loading}
                 className="input w-full h-12 text-base"
               />
+            </div>
+
+            <div>
+              <label htmlFor="groupId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Guest Group
+                </span>
+              </label>
+              <div className="relative">
+                <select
+                  id="groupId"
+                  name="groupId"
+                  value={formData.groupId || ''}
+                  onChange={handleChange}
+                  className="input w-full touch-manipulation appearance-none pl-10 h-12 text-base"
+                  disabled={loading}
+                >
+                  <option value="">No group selected</option>
+                  {guestGroups.map(group => (
+                    <option key={group._id} value={group._id} className={group._pendingSync ? 'text-yellow-600 dark:text-yellow-400' : ''}>
+                      {group.name} {group._pendingSync ? '(pending sync)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500 pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              {guestGroups.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  No groups available. Create a group first.
+                </p>
+              )}
             </div>
             
             <div className="flex justify-end space-x-3 mt-6">

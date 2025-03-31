@@ -21,6 +21,7 @@ import analytics from './utils/analytics';
 import { safeGet } from './utils/safeAccess';
 import { applyMobilePatches } from './utils/mobileCompatibility';
 import serviceWorkerUtil from './utils/serviceWorkerUtil';
+import GuestListManager from './components/GuestListManager';
 
 // Utility to detect mobile devices with more reliability
 const detectMobileDevice = () => {
@@ -85,6 +86,8 @@ function App() {
   const [activeTabIndex, setActiveTabIndex] = useState(0); // For bottom navbar
   const [hasNetworkError, setHasNetworkError] = useState(false);
   const [refreshAttempts, setRefreshAttempts] = useState(0);
+  const [guestGroups, setGuestGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : '/api';
 
@@ -365,15 +368,43 @@ function App() {
     }
   }, [token, API_BASE_URL]);
 
+  const fetchGuestGroups = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const response = await axios.get(`${API_BASE_URL}/guest-groups`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setGuestGroups(response.data);
+      
+      // Set default selected group if none is selected
+      if (!selectedGroup && response.data.length > 0) {
+        setSelectedGroup(response.data[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching guest groups:', error);
+      // Use offline data if available
+      const offlineGroups = await db.getGroups();
+      if (offlineGroups.length > 0) {
+        setGuestGroups(offlineGroups);
+        if (!selectedGroup && offlineGroups.length > 0) {
+          setSelectedGroup(offlineGroups[0]);
+        }
+      }
+    }
+  }, [token, API_BASE_URL, selectedGroup]);
+
   // Load guests when token changes
   useEffect(() => {
     if (token) {
       fetchGuests();
+      fetchGuestGroups();
       localStorage.setItem('token', token);
     } else {
       localStorage.removeItem('token');
     }
-  }, [token, fetchGuests]);
+  }, [token, fetchGuests, fetchGuestGroups]);
 
   // Utility functions
   const toggleDarkMode = () => {
@@ -533,19 +564,18 @@ function App() {
       ),
     },
     {
-      label: 'Stats',
+      label: 'Groups',
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
     {
-      label: 'Settings',
+      label: 'Stats',
       icon: (
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
     },
@@ -575,8 +605,11 @@ function App() {
       case 1: // List
         document.querySelector('.guest-list')?.scrollIntoView({ behavior: 'smooth' });
         break;
-      case 3: // Settings
-        // You could show a settings modal here
+      case 2: // Groups
+        document.querySelector('.guest-groups')?.scrollIntoView({ behavior: 'smooth' });
+        break;
+      case 3: // Stats
+        document.querySelector('.stats-section')?.scrollIntoView({ behavior: 'smooth' });
         break;
       case 4: // Toggle Dark Mode
         toggleDarkMode();
@@ -691,7 +724,7 @@ function App() {
             )}
             
             {/* Stats cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 mt-4 stats-section">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center justify-between card-hover">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -776,47 +809,68 @@ function App() {
             </div>
             
             {loading ? (
-              <div
-                className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center"
-                role="status"
-              >
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
+              <div className="loading-indicator">
+                <div
+                  className="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-900 dark:text-blue-200 flex items-center justify-center"
+                  role="status"
                 >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Loading...
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Loading...
+                </div>
               </div>
             ) : (
               <>
+                {/* Guest Groups Management */}
+                <div className="guest-groups">
+                  <GuestListManager
+                    token={token}
+                    apiBaseUrl={API_BASE_URL}
+                    isOnline={isOnline}
+                    selectedGroup={selectedGroup}
+                    setSelectedGroup={setSelectedGroup}
+                    guests={guests} // Pass guests to the component
+                  />
+                </div>
+                
+                {/* Guest Form with group selection */}
                 <GuestForm
                   token={token}
                   onGuestAdded={fetchGuests}
                   apiBaseUrl={API_BASE_URL}
                   isOnline={isOnline}
+                  selectedGroup={selectedGroup}
+                  guestGroups={guestGroups}
                 />
+                
+                {/* Guest List filtered by selected group */}
                 <GuestList
                   token={token}
                   guests={guests}
                   onUpdate={fetchGuests}
                   apiBaseUrl={API_BASE_URL}
                   isOnline={isOnline}
+                  selectedGroup={selectedGroup}
+                  guestGroups={guestGroups} // Add this prop
                 />
               </>
             )}
