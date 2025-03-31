@@ -82,6 +82,10 @@ const GuestListManager = ({
       setLoading(true);
       
       if (isOnline) {
+        console.log('Creating group with URL:', `${apiBaseUrl}/guest-groups`);
+        console.log('Token present:', !!token);
+        console.log('Group name:', newGroupName.trim());
+        
         const response = await axios.post(
           `${apiBaseUrl}/guest-groups`, 
           { name: newGroupName.trim() },

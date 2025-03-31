@@ -19,18 +19,15 @@ mongoose.connect(process.env.MONGODB_URI, {
 }).then(() => console.log('MongoDB connected'))
   .catch(err => console.log('MongoDB connection error:', err));
 
-// Add the guest groups routes to the app
-// ...existing code...
-
 // Import routes
 const authRoutes = require('./routes/auth');
-const guestRoutes = require('./routes/guests');
-const guestGroupRoutes = require('./routes/guestGroups'); // Add this line
+const guestRoutes = require('./routes/guests'); // Update this to match the actual filename
+const guestGroupRoutes = require('./routes/guestGroups');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/guests', guestRoutes);
-app.use('/api/guest-groups', guestGroupRoutes); // Add this line
+app.use('/api/guest-groups', guestGroupRoutes);
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
