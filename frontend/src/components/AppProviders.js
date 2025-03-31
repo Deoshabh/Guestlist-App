@@ -1,25 +1,12 @@
 import React from 'react';
-import { ToastProvider } from './ToastManager';
-import { AuthProvider } from '../contexts/AuthContext';
-import { UIProvider } from '../contexts/UIContext';
-import { NetworkProvider } from '../contexts/NetworkContext';
-import { GuestProvider } from '../contexts/GuestContext';
 import ErrorBoundary from './ErrorBoundary';
 
+// This component exists to avoid an error with undefined AppProviders
+// It's a simplified version that just provides error boundary
 const AppProviders = ({ children }) => {
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <NetworkProvider>
-            <UIProvider>
-              <GuestProvider>
-                {children}
-              </GuestProvider>
-            </UIProvider>
-          </NetworkProvider>
-        </AuthProvider>
-      </ToastProvider>
+      {children}
     </ErrorBoundary>
   );
 };

@@ -8,6 +8,75 @@
  * Currently implemented as a minimal fallback to resolve build errors.
  */
 
+import Dexie from 'dexie';
+
+// Define the database
+const db = new Dexie('GuestManagerDB');
+
+// Initialize database schema with versions
+db.version(1).stores({
+  guests: 'id, name, phone, email, status',
+  users: 'id, email, isCurrentUser',
+  settings: 'id',
+  syncQueue: '++id, operation, entityId, timestamp',
+});
+
+// Error handling for database operations
+db.open().catch(err => {
+  console.error('Failed to open database:', err);
+  
+  // Try to recover from database issues
+  try {
+    // Check if localStorage is available as fallback
+    if (window.localStorage) {
+      // Store error in localStorage
+      localStorage.setItem('db-error', JSON.stringify({
+        message: err.message,
+        time: new Date().toISOString()
+      }));
+      
+      // If the database is blocked or corrupted, attempt to delete and recreate
+      if (err.name === 'VersionError' || err.name === 'InvalidStateError') {
+        console.warn('Attempting to delete and recreate the database...');
+        Dexie.delete('GuestManagerDB').then(() => {
+          window.location.reload();
+        });
+      }
+    }
+  } catch (recoveryErr) {
+    console.error('Recovery failed:', recoveryErr);
+  }
+});
+
+// Add wrappers with better error handling
+const wrappedDb = {
+  ...db,
+  
+  // Add safer transaction handling
+  transaction: async (mode, tables, callback) => {
+    try {
+      return await db.transaction(mode, tables, callback);
+    } catch (err) {
+      console.error('Transaction failed:', err);
+      throw err;
+    }
+  },
+  
+  // Add methods to force-reset database if needed
+  reset: async () => {
+    try {
+      await db.delete();
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to reset database:', err);
+      throw err;
+    }
+  }
+};
+
+// Export the wrapped database object
+export { wrappedDb };
+
 // Database configuration (placeholder values)
 export const DB_NAME = 'guest-manager-db';
 export const DB_VERSION = 1;

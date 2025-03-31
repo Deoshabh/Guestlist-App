@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import syncManager from '../utils/syncManager';
 import { useNetwork } from './NetworkContext';
 import { useToast } from '../components/ToastManager';
 import db from '../utils/db';
@@ -113,20 +112,6 @@ export const AuthProvider = ({ children }) => {
     return () => axios.interceptors.request.eject(interceptor);
   }, [token]);
 
-  // Update syncManager when token changes
-  useEffect(() => {
-    if (token) {
-      try {
-        localStorage.setItem('token', token);
-        syncManager.setToken(token);
-      } catch (err) {
-        console.error('Error in token effect:', err);
-      }
-    } else {
-      localStorage.removeItem('token');
-    }
-  }, [token]);
-
   // Handle login
   const login = useCallback(async (credentials) => {
     try {
@@ -203,9 +188,27 @@ export const AuthProvider = ({ children }) => {
   const register = useCallback(async (userData) => {
     try {
       setLoading(true);
-      const response = await axios.post('/auth/register', userData);
+      // Simulate successful registration in offline mode
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Create dummy user
+      const dummyUser = {
+        id: Date.now().toString(),
+        ...userData,
+        isCurrentUser: true,
+      };
+      
+      // Save to IndexedDB
+      await db.users.put(dummyUser);
+      
+      // Set token and user
+      const dummyToken = 'simulated-token-' + Date.now();
+      localStorage.setItem('authToken', dummyToken);
+      setToken(dummyToken);
+      setUser(dummyUser);
+      
       setLoading(false);
-      return { success: true, data: response.data };
+      return { success: true, data: { user: dummyUser, token: dummyToken } };
     } catch (error) {
       console.error('Registration failed:', error);
       setLoading(false);

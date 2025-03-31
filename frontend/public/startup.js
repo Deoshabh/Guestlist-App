@@ -5,105 +5,134 @@
 (function() {
   console.log('🚀 Initializing Guest Manager application...');
   
-  // Generate missing icons if needed
-  function generateIcon(size) {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      
-      // Blue background
-      ctx.fillStyle = '#3498db';
-      ctx.fillRect(0, 0, size, size);
-      
-      // White text
-      ctx.fillStyle = 'white';
-      ctx.font = `bold ${size/5}px Arial, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('GUEST', size/2, size/2 - size/10);
-      ctx.fillText('MANAGER', size/2, size/2 + size/10);
-      
-      return canvas.toDataURL('image/png');
-    } catch (e) {
-      console.warn('Failed to generate icon:', e);
-      return '';
-    }
+  // Check for missing icons and create data URIs in localStorage
+  function generateAndCacheIcons() {
+    const sizes = [192, 512];
+    sizes.forEach(size => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Blue background
+        ctx.fillStyle = '#3498db';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Draw rounded corners
+        ctx.fillStyle = '#3498db';
+        const radius = size * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(0, radius);
+        ctx.arcTo(0, 0, radius, 0, radius);
+        ctx.lineTo(size - radius, 0);
+        ctx.arcTo(size, 0, size, radius, radius);
+        ctx.lineTo(size, size - radius);
+        ctx.arcTo(size, size, size - radius, size, radius);
+        ctx.lineTo(radius, size);
+        ctx.arcTo(0, size, 0, size - radius, radius);
+        ctx.closePath();
+        ctx.fill();
+        
+        // White text
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${size/5}px Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('GUEST', size/2, size/2 - size/10);
+        ctx.fillText('MANAGER', size/2, size/2 + size/10);
+        
+        // Cache the icon in localStorage
+        try {
+          const dataUrl = canvas.toDataURL('image/png');
+          localStorage.setItem(`app-icon-${size}`, dataUrl);
+        } catch (e) {
+          console.warn('Failed to cache icon:', e);
+        }
+      } catch (e) {
+        console.warn('Failed to generate icon:', e);
+      }
+    });
   }
   
-  // Fix missing icons on page load
-  window.addEventListener('DOMContentLoaded', function() {
-    // Fix icon paths
-    const iconLinks = document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]');
-    iconLinks.forEach(link => {
-      const size = link.getAttribute('sizes')?.split('x')[0] || 192;
-      const icon = generateIcon(parseInt(size));
-      if (icon) link.href = icon;
-    });
+  // Create or retrieve a blob URL for an icon
+  function getIconBlobUrl(size) {
+    const storageKey = `app-icon-blob-${size}`;
+    let blobUrl = sessionStorage.getItem(storageKey);
     
-    // Force offline mode if CORS is not working
-    if (localStorage.getItem('forceOfflineMode') !== 'false') {
-      localStorage.setItem('forceOfflineMode', 'true');
-      console.log('⚠️ Forcing offline mode due to CORS issues');
+    if (!blobUrl) {
+      const dataUrl = localStorage.getItem(`app-icon-${size}`);
+      if (dataUrl) {
+        try {
+          // Convert data URL to Blob
+          const byteString = atob(dataUrl.split(',')[1]);
+          const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([ab], { type: mimeString });
+          blobUrl = URL.createObjectURL(blob);
+          sessionStorage.setItem(storageKey, blobUrl);
+        } catch (e) {
+          console.warn('Failed to create blob URL:', e);
+        }
+      }
     }
+    
+    return blobUrl;
+  }
+  
+  // Apply icons dynamically to avoid CORS issues
+  function applyIcons() {
+    // Generate and cache icons if needed
+    if (!localStorage.getItem('app-icon-192')) {
+      generateAndCacheIcons();
+    }
+    
+    // Update icon URLs
+    const icons = document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]');
+    icons.forEach(link => {
+      const sizeAttr = link.getAttribute('sizes');
+      const size = sizeAttr ? parseInt(sizeAttr.split('x')[0]) : 192;
+      const blobUrl = getIconBlobUrl(size) || getIconBlobUrl(192);
+      
+      if (blobUrl) {
+        link.href = blobUrl;
+      }
+    });
+  }
+  
+  // Fix icon paths when DOM is loaded
+  window.addEventListener('DOMContentLoaded', function() {
+    // Apply icons
+    setTimeout(applyIcons, 100);
+    
+    // Show offline mode warning if necessary
+    if (localStorage.getItem('forceOfflineMode') === 'true') {
+      const corsWarning = document.getElementById('cors-warning');
+      if (corsWarning) corsWarning.style.display = 'block';
+    }
+    
+    // Set up global error handler
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('Global error:', message, source, lineno, colno);
+      return false;
+    };
     
     console.log('✅ Startup script completed');
-  });
-  
-  // Log errors for debugging
-  window.addEventListener('error', function(event) {
-    console.error('Global error:', event.message, event.filename, event.lineno);
-  });
-  
-  // Check for previously set offline mode
-  const isForceOffline = localStorage.getItem('forceOfflineMode') === 'true';
-  
-  // Check for network status
-  const isOnline = navigator.onLine;
-  
-  // Function to show CORS warning
-  function showCorsWarning() {
-    const corsWarning = document.getElementById('cors-warning');
-    if (corsWarning) {
-      corsWarning.style.display = 'block';
-    }
-  }
-  
-  // If offline mode is forced, show the warning
-  if (isForceOffline) {
-    showCorsWarning();
-  }
-  
-  // Add listener for offline events
-  window.addEventListener('offline', function() {
-    // Show toast-like notification at the top of the page
-    const notification = document.createElement('div');
-    notification.textContent = 'You are offline. Limited functionality available.';
-    notification.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff9800;color:white;text-align:center;padding:10px;z-index:10001;';
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(function() {
-      if (document.body.contains(notification)) {
-        document.body.removeChild(notification);
-      }
-    }, 3000);
-  });
-  
-  // Setup CORS error detection
-  window.addEventListener('error', function(e) {
-    if (e.message && e.message.includes('CORS')) {
-      console.warn('CORS error detected in startup script');
-      // Don't automatically enable offline mode, just log it
-    }
   });
   
   // Initialize localStorage if it doesn't exist
   if (localStorage.getItem('guest-app-initialized') !== 'true') {
     localStorage.setItem('guest-app-initialized', 'true');
-    localStorage.setItem('forceOfflineMode', 'false');
+    localStorage.setItem('forceOfflineMode', 'true'); // Start in offline mode by default
   }
+  
+  // Block analytics to avoid CORS errors
+  window.ga = function() {};
+  window.gtag = function() {};
   
   // Improve PWA experience
   if ('serviceWorker' in navigator) {

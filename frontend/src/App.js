@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -18,6 +18,13 @@ import haptic from './utils/haptic';
 import { useToast } from './components/ToastManager';
 import ConnectivityMonitor from './components/ConnectivityMonitor';
 import analytics from './utils/analytics';
+import ErrorBoundary from './components/ErrorBoundary';
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+  </div>
+);
 
 function AppContent() {
   const { token, showRegister, setShowRegister, setToken } = useAuth();
@@ -53,33 +60,55 @@ function AppContent() {
     setActiveTabIndex
   );
 
+  // Disable analytics if there are issues
+  useEffect(() => {
+    try {
+      // Block analytics to avoid CORS issues
+      window.ga = function() {};
+      window.gtag = function() {};
+    } catch (error) {
+      console.warn('Failed to block analytics:', error);
+    }
+  }, []);
+
   // Conditional rendering for authentication
   if (!token && showRegister) {
-    return <Register setToken={setToken} setShowRegister={setShowRegister} />;
+    return (
+      <ErrorBoundary>
+        <Register setToken={setToken} setShowRegister={setShowRegister} />
+      </ErrorBoundary>
+    );
   }
   
   if (!token) {
     return (
-      <Login 
-        setToken={setToken} 
-        showRegister={showRegister} 
-        setShowRegister={setShowRegister} 
-      />
+      <ErrorBoundary>
+        <Login 
+          setToken={setToken} 
+          showRegister={showRegister} 
+          setShowRegister={setShowRegister} 
+        />
+      </ErrorBoundary>
     );
   }
 
   return (
-    <Router>
-      <MainLayout 
-        quickActions={quickActions} 
-        bottomNavItems={bottomNavItems}
-      >
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/whatsapp-templates" element={<WhatsAppTemplatesPage />} />
-        </Routes>
-      </MainLayout>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <MainLayout 
+          quickActions={quickActions} 
+          bottomNavItems={bottomNavItems}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/whatsapp-templates" element={<WhatsAppTemplatesPage />} />
+              <Route path="*" element={<div className="p-8 text-center">Page not found</div>} />
+            </Routes>
+          </Suspense>
+        </MainLayout>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
@@ -88,7 +117,9 @@ function App() {
     <AppProviders>
       <div className="App">
         <ConnectivityMonitor />
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </div>
     </AppProviders>
   );

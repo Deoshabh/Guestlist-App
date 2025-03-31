@@ -9,6 +9,7 @@ import { UIProvider } from './contexts/UIContext';
 import { GuestProvider } from './contexts/GuestContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import { ToastProvider } from './components/ToastManager';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 import { checkIcons } from './utils/iconGenerator';
 
@@ -22,19 +23,21 @@ try {
 // Create root for React 18
 const root = createRoot(document.getElementById('root'));
 root.render(
-  <ToastProvider>
-    <BrowserRouter>
-      <NetworkProvider>
-        <AuthProvider>
-          <UIProvider>
-            <GuestProvider>
-              <App />
-            </GuestProvider>
-          </UIProvider>
-        </AuthProvider>
-      </NetworkProvider>
-    </BrowserRouter>
-  </ToastProvider>
+  <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+    <ToastProvider>
+      <BrowserRouter>
+        <NetworkProvider>
+          <AuthProvider>
+            <UIProvider>
+              <GuestProvider>
+                <App />
+              </GuestProvider>
+            </UIProvider>
+          </AuthProvider>
+        </NetworkProvider>
+      </BrowserRouter>
+    </ToastProvider>
+  </ErrorBoundary>
 );
 
 // Register service worker with minimal error handling

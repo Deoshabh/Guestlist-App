@@ -2,31 +2,31 @@
   "id": "guest-manager-pwa",
   "short_name": "Guest Manager",
   "name": "Guest Management Application",
-  "description": "Manage your guest list easily with online and offline capabilities",
+  "description": "Manage guest check-ins and registrations",
   "icons": [
     {
-      "src": "/favicon.ico",
+      "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "/logo192.png",
+      "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo512.png",
+      "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
-  "orientation": "portrait-primary",
+  "theme_color": "#3498db",
+  "background_color": "#f0f2f5",
+  "orientation": "portrait",
   "dir": "ltr",
   "lang": "en-US",
   "categories": ["productivity", "business"],
