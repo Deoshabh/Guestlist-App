@@ -1,8 +1,8 @@
 /**
  * ContactService - Provides functionality for integrating with device contacts
  */
-import { saveContact, getContacts } from '../utils/db';
-import ContactsHelper from '../utils/ContactsHelper';
+import { saveContact, getContacts } from './db';
+import ContactsHelper from './ContactsHelper';
 
 const ContactService = {
   /**
