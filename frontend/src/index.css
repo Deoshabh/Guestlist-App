@@ -55,6 +55,17 @@ code {
       @apply my-1 w-full;
     }
   }
+  
+  /* Mobile optimizations for modals */
+  @media (max-width: 640px) {
+    .btn {
+      @apply py-3; /* Larger touch target */
+    }
+    
+    .input {
+      @apply py-3; /* Larger touch target */
+    }
+  }
 }
 
 /* Improved scrollbar for dark mode */
@@ -79,4 +90,24 @@ code {
   .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-500;
   }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .animate-progress {
+    animation: progressBar 2s infinite linear;
+    width: 100%;
+  }
+}
+
+/* New animations for enhanced UX */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes progressBar {
+  from { width: 0; }
+  to { width: 100%; }
 }

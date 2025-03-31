@@ -46,7 +46,38 @@ router.post('/', async (req, res) => {
 // PUT /api/guests/:id - update guest (e.g. toggle invited status)
 router.put('/:id', async (req, res) => {
   try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { name, contact, invited } = req.body;
+    
+    // If this is a name/contact update (not just an invited status toggle)
+    if (name !== undefined) {
+      // Validate name is not empty
+      if (!name.trim()) {
+        return res.status(400).json({ error: 'Guest name cannot be empty' });
+      }
+      
+      // Check for duplicates (exclude current guest from check)
+      const duplicate = await Guest.findOne({
+        _id: { $ne: req.params.id },
+        name: name.trim(),
+        contact: contact ? contact.trim() : '',
+        deleted: false
+      });
+      
+      if (duplicate) {
+        return res.status(400).json({ error: 'Another guest with the same name and contact already exists' });
+      }
+    }
+    
+    const guest = await Guest.findByIdAndUpdate(
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true }
+    );
+    
+    if (!guest) {
+      return res.status(404).json({ error: 'Guest not found' });
+    }
+    
     res.json(guest);
   } catch (err) {
     res.status(500).json({ error: err.message });

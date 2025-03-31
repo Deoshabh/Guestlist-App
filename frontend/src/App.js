@@ -5,7 +5,12 @@ import Register from './components/Register';
 import GuestList from './components/GuestList';
 import GuestForm from './components/GuestForm';
 import Navbar from './components/Navbar';
+import ServiceWorkerUpdater from './components/ServiceWorkerUpdater';
+import InstallPrompt from './components/InstallPrompt';
 import './App.css';
+import db from './utils/db';
+import syncManager from './utils/syncManager';
+import haptic from './utils/haptic';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -15,8 +20,13 @@ function App() {
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [networkStatus, setNetworkStatus] = useState({
+    type: 'unknown',
+    effectiveType: 'unknown'
+  });
 
-  // Use API base URL with environment awareness - correct version to avoid duplicating /api
+  // Use API base URL with environment awareness
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? '' 
     : '/api';
@@ -26,6 +36,23 @@ function App() {
     if (process.env.NODE_ENV === 'production') {
       axios.defaults.baseURL = process.env.REACT_APP_API_URL || '';
     }
+
+    // Add request interceptor to handle offline requests
+    axios.interceptors.request.use(
+      config => {
+        if (!navigator.onLine) {
+          // For GET requests, we'll attempt to serve from cache via the service worker
+          // For non-GET requests, we need to store them for later processing
+          if (config.method !== 'get') {
+            throw new axios.Cancel('Currently offline. Request will be queued for later.');
+          }
+        }
+        return config;
+      },
+      error => {
+        return Promise.reject(error);
+      }
+    );
   }, []);
 
   // Set dark mode class on body
@@ -38,6 +65,62 @@ function App() {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
+  // Setup online/offline event listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setError(null);
+      haptic.successFeedback();
+      // Trigger a fetch when coming back online
+      fetchGuests();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      haptic.errorFeedback();
+      // Show a friendly offline message
+      setError('You are currently offline. Changes will be saved locally and synced when you reconnect.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Get initial network status if Network Information API is available
+    if ('connection' in navigator) {
+      const connection = navigator.connection;
+      setNetworkStatus({
+        type: connection.type || 'unknown',
+        effectiveType: connection.effectiveType || 'unknown'
+      });
+
+      // Listen for network type changes
+      connection.addEventListener('change', () => {
+        setNetworkStatus({
+          type: connection.type || 'unknown',
+          effectiveType: connection.effectiveType || 'unknown'
+        });
+      });
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if ('connection' in navigator) {
+        navigator.connection.removeEventListener('change', () => {});
+      }
+    };
+  }, []);
+
+  // Initialize sync manager with token
+  useEffect(() => {
+    if (token) {
+      syncManager.setToken(token);
+      if (navigator.onLine) {
+        syncManager.syncPendingActions();
+      }
+    }
+  }, [token, isOnline]);
+
   // Use useCallback to create a stable reference to fetchGuests
   const fetchGuests = useCallback(async () => {
     if (!token) return;
@@ -46,24 +129,82 @@ function App() {
     setError(null);
     
     try {
-      const res = await axios.get(`${API_BASE_URL}/guests`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setGuests(res.data);
-      
-      const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStats(statsRes.data);
+      if (navigator.onLine) {
+        // When online, fetch from API
+        const res = await axios.get(`${API_BASE_URL}/guests`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setGuests(res.data);
+        
+        // Also store in local DB for offline use
+        try {
+          await db.saveGuests(res.data);
+        } catch (dbErr) {
+          console.warn('Failed to save guests to local DB:', dbErr);
+        }
+        
+        const statsRes = await axios.get(`${API_BASE_URL}/guests/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setStats(statsRes.data);
+      } else {
+        // When offline, get from local DB
+        try {
+          const localGuests = await db.getAllGuests();
+          setGuests(localGuests);
+          
+          // Calculate stats manually
+          const total = localGuests.filter(g => !g.deleted).length;
+          const invited = localGuests.filter(g => g.invited && !g.deleted).length;
+          setStats({
+            total,
+            invited,
+            pending: total - invited
+          });
+          
+          setError('You are offline. Showing locally saved data.');
+        } catch (dbErr) {
+          console.error('Error fetching from local DB:', dbErr);
+          setError('Could not load offline data. Please check your connection.');
+          setGuests([]);
+          setStats({ total: 0, invited: 0, pending: 0 });
+        }
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
-      setError('Could not connect to server. Please make sure the backend is running.');
-      setGuests([]);
-      setStats({ total: 0, invited: 0, pending: 0 });
+      
+      if (!navigator.onLine) {
+        try {
+          // Try to load from IndexedDB if we're offline
+          const localGuests = await db.getAllGuests();
+          if (localGuests.length > 0) {
+            setGuests(localGuests);
+            // Calculate stats manually
+            const total = localGuests.filter(g => !g.deleted).length;
+            const invited = localGuests.filter(g => g.invited && !g.deleted).length;
+            setStats({
+              total,
+              invited,
+              pending: total - invited
+            });
+            setError('You are offline. Showing locally saved data.');
+          } else {
+            setError('No local data available. Connect to the internet to load guests.');
+          }
+        } catch (dbErr) {
+          setError('Could not load offline data. Please check your connection.');
+          setGuests([]);
+          setStats({ total: 0, invited: 0, pending: 0 });
+        }
+      } else {
+        setError('Could not connect to server. Please make sure the backend is running.');
+        setGuests([]);
+        setStats({ total: 0, invited: 0, pending: 0 });
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, API_BASE_URL, setLoading, setError, setGuests, setStats]);
+  }, [token, API_BASE_URL]);
 
   useEffect(() => {
     if (token) {
@@ -74,8 +215,27 @@ function App() {
     }
   }, [token, fetchGuests]);
 
-  const toggleDarkMode = () => setDarkMode(!darkMode);
-  const logout = () => setToken('');
+  const toggleDarkMode = () => {
+    haptic.lightFeedback();
+    setDarkMode(!darkMode);
+  };
+  
+  const logout = () => {
+    haptic.mediumFeedback();
+    setToken('');
+  };
+
+  // Request notification permission for syncing
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Wait a moment before asking for permission
+      const timer = setTimeout(() => {
+        Notification.requestPermission();
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Handle Register component
   if (!token && showRegister) {
@@ -98,8 +258,20 @@ function App() {
       <div className="max-w-6xl mx-auto">
         <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} isAuthenticated={!!token} logout={logout} />
         
+        {/* Network status indicator */}
+        {!isOnline && (
+          <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-4 dark:bg-orange-900 dark:text-orange-200 rounded-md">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p>Offline Mode - Changes will sync when you reconnect</p>
+            </div>
+          </div>
+        )}
+        
         {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 dark:bg-red-900 dark:text-red-200">
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 dark:bg-red-900 dark:text-red-200 rounded-md">
             <p>{error}</p>
           </div>
         )}
@@ -152,11 +324,37 @@ function App() {
           </div>
         ) : (
           <>
-            <GuestForm token={token} onGuestAdded={fetchGuests} apiBaseUrl={API_BASE_URL} />
-            <GuestList token={token} guests={guests} onUpdate={fetchGuests} apiBaseUrl={API_BASE_URL} />
+            <GuestForm 
+              token={token} 
+              onGuestAdded={fetchGuests} 
+              apiBaseUrl={API_BASE_URL}
+              isOnline={isOnline}
+            />
+            <GuestList 
+              token={token} 
+              guests={guests} 
+              onUpdate={fetchGuests} 
+              apiBaseUrl={API_BASE_URL}
+              isOnline={isOnline}
+            />
           </>
         )}
+
+        {/* Install prompt - only show on specific conditions */}
+        {isOnline && (
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Add to home screen for offline access
+            </p>
+          </div>
+        )}
       </div>
+      
+      {/* Add the ServiceWorkerUpdater component */}
+      <ServiceWorkerUpdater />
+      
+      {/* Add the InstallPrompt component */}
+      <InstallPrompt />
     </div>
   );
 }

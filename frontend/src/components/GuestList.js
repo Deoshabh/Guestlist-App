@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import EditGuestModal from './EditGuestModal';
+import db from '../utils/db';
+import haptic from '../utils/haptic';
 
-function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
+function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api', isOnline = true }) {
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'invited', 'notInvited'
@@ -9,6 +12,9 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
   const [sortOrder, setSortOrder] = useState('asc');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'table'
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [currentGuest, setCurrentGuest] = useState(null);
+  const [error, setError] = useState('');
 
   // Reset selected guests when the guests list changes
   useEffect(() => {
@@ -61,6 +67,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     filteredAndSortedGuests.every(g => selected.includes(g._id));
 
   const toggleAll = () => {
+    haptic.lightFeedback();
     if (isAllSelected) {
       setSelected([]);
     } else {
@@ -69,6 +76,7 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
   };
 
   const toggleSelect = (id) => {
+    haptic.lightFeedback();
     setSelected(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
@@ -78,15 +86,43 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     if (selected.length === 0) return;
     
     setLoading(true);
+    setError('');
+    
     try {
-      await axios.put(`${apiBaseUrl}/guests/bulk-update`, { ids: selected, invited }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (isOnline) {
+        // Online mode - send directly to server
+        await axios.put(`${apiBaseUrl}/guests/bulk-update`, { ids: selected, invited }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        haptic.successFeedback();
+      } else {
+        // Offline mode - update locally and queue for later
+        const guestsToUpdate = guests.filter(g => selected.includes(g._id));
+        
+        for (const guest of guestsToUpdate) {
+          // Update guest in local DB
+          const updatedGuest = { ...guest, invited, _pendingSync: true };
+          await db.saveGuest(updatedGuest);
+          
+          // Queue the update for later sync
+          await db.queueAction('UPDATE_GUEST', {
+            id: guest._id,
+            data: { invited }
+          });
+        }
+        
+        haptic.successFeedback();
+      }
+      
       setSelected([]);
       onUpdate();
     } catch (err) {
       console.error(err);
-      alert('Error updating guests');
+      haptic.errorFeedback();
+      setError(isOnline 
+        ? 'Error updating guests' 
+        : 'Failed to update guests offline. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -94,14 +130,43 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
 
   const toggleGuestInvited = async (id, currentStatus) => {
     setLoading(true);
+    setError('');
+    
     try {
-      await axios.put(`${apiBaseUrl}/guests/${id}`, { invited: !currentStatus }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (isOnline) {
+        // Online mode - send directly to server
+        await axios.put(`${apiBaseUrl}/guests/${id}`, { invited: !currentStatus }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        haptic.successFeedback();
+      } else {
+        // Offline mode - update locally and queue for later
+        const guest = guests.find(g => g._id === id);
+        if (!guest) {
+          throw new Error('Guest not found');
+        }
+        
+        // Update guest in local DB
+        const updatedGuest = { ...guest, invited: !currentStatus, _pendingSync: true };
+        await db.saveGuest(updatedGuest);
+        
+        // Queue the update for later sync
+        await db.queueAction('UPDATE_GUEST', {
+          id,
+          data: { invited: !currentStatus }
+        });
+        
+        haptic.successFeedback();
+      }
+      
       onUpdate();
     } catch (err) {
       console.error(err);
-      alert('Error updating guest');
+      haptic.errorFeedback();
+      setError(isOnline 
+        ? 'Error updating guest' 
+        : 'Failed to update guest offline. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -111,14 +176,40 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     if (!window.confirm('Are you sure you want to delete this guest?')) return;
     
     setLoading(true);
+    setError('');
+    
     try {
-      await axios.delete(`${apiBaseUrl}/guests/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (isOnline) {
+        // Online mode - send directly to server
+        await axios.delete(`${apiBaseUrl}/guests/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        haptic.successFeedback();
+      } else {
+        // Offline mode - update locally and queue for later
+        const guest = guests.find(g => g._id === id);
+        if (!guest) {
+          throw new Error('Guest not found');
+        }
+        
+        // Update guest in local DB
+        const updatedGuest = { ...guest, deleted: true, _pendingSync: true };
+        await db.saveGuest(updatedGuest);
+        
+        // Queue the delete action for later sync
+        await db.queueAction('DELETE_GUEST', { id });
+        
+        haptic.successFeedback();
+      }
+      
       onUpdate();
     } catch (err) {
       console.error(err);
-      alert('Error deleting guest');
+      haptic.errorFeedback();
+      setError(isOnline 
+        ? 'Error deleting guest' 
+        : 'Failed to delete guest offline. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -126,24 +217,67 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
 
   const undoDelete = async (id) => {
     setLoading(true);
+    setError('');
+    
     try {
-      await axios.put(`${apiBaseUrl}/guests/${id}/undo`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (isOnline) {
+        // Online mode - send directly to server
+        await axios.put(`${apiBaseUrl}/guests/${id}/undo`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        haptic.successFeedback();
+      } else {
+        // Offline mode - update locally and queue for later
+        const guest = guests.find(g => g._id === id);
+        if (!guest) {
+          throw new Error('Guest not found');
+        }
+        
+        // Update guest in local DB
+        const updatedGuest = { ...guest, deleted: false, _pendingSync: true };
+        await db.saveGuest(updatedGuest);
+        
+        // Queue the restore action for later sync
+        await db.queueAction('UPDATE_GUEST', {
+          id,
+          data: { deleted: false }
+        });
+        
+        haptic.successFeedback();
+      }
+      
       onUpdate();
     } catch (err) {
       console.error(err);
-      alert('Error restoring guest');
+      haptic.errorFeedback();
+      setError(isOnline 
+        ? 'Error restoring guest' 
+        : 'Failed to restore guest offline. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const exportCSV = () => {
+    if (!isOnline) {
+      setError('Export is only available when online');
+      haptic.errorFeedback();
+      return;
+    }
+    
     window.open(`${apiBaseUrl}/guests/export`, '_blank');
+    haptic.mediumFeedback();
   };
 
   const importCSV = async (e) => {
+    if (!isOnline) {
+      setError('Import is only available when online');
+      haptic.errorFeedback();
+      e.target.value = null; // Reset file input
+      return;
+    }
+    
     const file = e.target.files[0];
     if (!file) return;
     
@@ -151,6 +285,8 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
     formData.append('file', file);
     
     setLoading(true);
+    setError('');
+    
     try {
       await axios.post(`${apiBaseUrl}/guests/import`, formData, {
         headers: { 
@@ -158,20 +294,47 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
           Authorization: `Bearer ${token}`
         }
       });
+      haptic.successFeedback();
       onUpdate();
       e.target.value = null; // Reset file input
     } catch (err) {
       console.error(err);
-      alert('Error importing guests');
+      haptic.errorFeedback();
+      setError('Error importing guests');
     } finally {
       setLoading(false);
     }
+  };
+
+  const openEditModal = (guest) => {
+    haptic.lightFeedback();
+    setCurrentGuest(guest);
+    setEditModalOpen(true);
+  };
+
+  const handleGuestUpdate = (updatedGuest) => {
+    onUpdate();
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
         <h2 className="text-xl font-semibold mb-4 dark:text-white">Guest List</h2>
+        
+        {!isOnline && (
+          <div className="p-3 mb-4 text-sm text-orange-700 bg-orange-100 rounded-lg dark:bg-orange-900 dark:text-orange-200 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Offline Mode - Some features are limited</span>
+          </div>
+        )}
+        
+        {error && (
+          <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-900 dark:text-red-200">
+            {error}
+          </div>
+        )}
         
         {/* Search and controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -222,7 +385,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
             
             <div className="flex">
               <button 
-                onClick={() => setViewMode('card')}
+                onClick={() => {
+                  setViewMode('card');
+                  haptic.lightFeedback();
+                }}
                 className={`px-3 py-2 rounded-l-md border border-r-0 ${
                   viewMode === 'card' 
                     ? 'bg-primary text-white' 
@@ -234,7 +400,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
                 </svg>
               </button>
               <button 
-                onClick={() => setViewMode('table')}
+                onClick={() => {
+                  setViewMode('table');
+                  haptic.lightFeedback();
+                }}
                 className={`px-3 py-2 rounded-r-md border ${
                   viewMode === 'table' 
                     ? 'bg-primary text-white' 
@@ -252,7 +421,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
         {/* Filter buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
           <button 
-            onClick={() => setFilter('all')}
+            onClick={() => {
+              setFilter('all');
+              haptic.lightFeedback();
+            }}
             className={`btn ${
               filter === 'all' 
                 ? 'btn-primary' 
@@ -267,7 +439,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
             </span>
           </button>
           <button 
-            onClick={() => setFilter('invited')}
+            onClick={() => {
+              setFilter('invited');
+              haptic.lightFeedback();
+            }}
             className={`btn ${
               filter === 'invited' 
                 ? 'btn-primary' 
@@ -282,7 +457,10 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
             </span>
           </button>
           <button 
-            onClick={() => setFilter('notInvited')}
+            onClick={() => {
+              setFilter('notInvited');
+              haptic.lightFeedback();
+            }}
             className={`btn ${
               filter === 'notInvited' 
                 ? 'btn-primary' 
@@ -341,8 +519,8 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
           
           <button 
             onClick={exportCSV} 
-            disabled={loading || guests.length === 0}
-            className="btn btn-outline text-sm"
+            disabled={loading || guests.length === 0 || !isOnline}
+            className={`btn btn-outline text-sm ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,16 +530,18 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
             </span>
           </button>
           
-          <label className="btn btn-outline text-sm flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            Import CSV
+          <label className={`btn btn-outline text-sm flex items-center ${!isOnline ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <span className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Import CSV
+            </span>
             <input 
               type="file" 
               accept=".csv" 
               onChange={importCSV}
-              disabled={loading}
+              disabled={loading || !isOnline}
               className="hidden"
             />
           </label>
@@ -406,7 +586,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
                       className="w-5 h-5 mt-1 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
                     />
                     <div>
-                      <h3 className="font-medium text-gray-900 dark:text-white">{guest.name}</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        {guest.name}
+                        {guest._pendingSync && (
+                          <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                        )}
+                      </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'No contact info'}</p>
                     </div>
                   </div>
@@ -421,6 +606,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2 mt-3">
+                  <button
+                    onClick={() => openEditModal(guest)}
+                    className="px-3 py-1.5 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={() => toggleGuestInvited(guest._id, guest.invited)}
                     className={`px-3 py-1.5 text-xs rounded ${
@@ -490,7 +681,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{guest.name}</div>
+                        {guest._pendingSync && (
+                          <span className="ml-2 inline-block w-2 h-2 bg-yellow-400 rounded-full" title="Pending sync"></span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500 dark:text-gray-400">{guest.contact || 'N/A'}</div>
@@ -506,6 +702,12 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => openEditModal(guest)}
+                          className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => toggleGuestInvited(guest._id, guest.invited)}
                           className={`px-3 py-1 text-xs rounded ${
@@ -539,6 +741,16 @@ function GuestList({ token, guests, onUpdate, apiBaseUrl = '/api' }) {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      <EditGuestModal 
+        guest={currentGuest}
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onUpdate={handleGuestUpdate}
+        token={token}
+        apiBaseUrl={apiBaseUrl}
+      />
     </div>
   );
 }

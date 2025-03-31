@@ -1,6 +1,7 @@
 {
   "short_name": "Guest Manager",
   "name": "Guest Management Application",
+  "description": "Manage your guest list, with offline capabilities",
   "icons": [
     {
       "src": "favicon.ico",
@@ -8,14 +9,39 @@
       "type": "image/x-icon"
     },
     {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
       "src": "logo512.svg",
-      "sizes": "512x512",
       "type": "image/svg+xml",
+      "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#3b82f6",
-  "background_color": "#ffffff"
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "prefer_related_applications": false,
+  "scope": "/",
+  "shortcuts": [
+    {
+      "name": "Add Guest",
+      "short_name": "Add",
+      "description": "Add a new guest",
+      "url": "/?action=add"
+    },
+    {
+      "name": "View Invited",
+      "short_name": "Invited",
+      "description": "View invited guests",
+      "url": "/?filter=invited"
+    }
+  ]
 }

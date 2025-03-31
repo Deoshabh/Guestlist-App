@@ -2,7 +2,8 @@
   "version": "1.0.0",
   "services": {
     "frontend": {
-      "buildPack": "nodejs",
+      "buildPack": "dockerfile",
+      "dockerfilePath": "frontend/Dockerfile",
       "host": "your-frontend-domain.com",
       "protocol": "https",
       "repository": {
@@ -10,11 +11,10 @@
         "url": "your-git-repository-url"
       },
       "path": "/frontend",
-      "buildCommand": "npm install && npm run build",
-      "startCommand": "serve -s build",
-      "port": 3000,
+      "port": 80,
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "REACT_APP_API_URL": "https://your-api-domain.com"
       }
     },
     "backend": {
@@ -30,7 +30,11 @@
       "startCommand": "node server.js",
       "port": 5000,
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "MONGODB_URI": "mongodb://mongodb:27017/guest-app",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "PORT": "5000",
+        "ALLOWED_ORIGINS": "https://your-frontend-domain.com"
       }
     }
   }
