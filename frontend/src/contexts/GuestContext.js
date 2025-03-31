@@ -244,8 +244,8 @@ export function GuestProvider({ children }) {
           // Save to local DB
           await db.saveGuest(tempGuest);
           
-          // Queue for later sync (without the temp ID)
-          const { id, _id, _pendingSync, ...syncData } = guest;
+          // Queue for later sync (without the temp ID and sync flag)
+          const { ...syncData } = guest;
           await db.queueAction('ADD_GUEST', syncData);
         }));
       }

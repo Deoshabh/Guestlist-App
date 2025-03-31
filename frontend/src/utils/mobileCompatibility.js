@@ -62,7 +62,7 @@ function enhanceTouchEvents() {
       
       // Override addEventListener to add error protection
       EventTarget.prototype.addEventListener = function(type, listener, options) {
-        if (touchEvents.includes(type) && typeof listener === 'function') {
+        if (type === eventType && typeof listener === 'function') {
           // Wrap the listener in a try-catch
           const safeListener = function(event) {
             try {
@@ -87,7 +87,7 @@ function enhanceTouchEvents() {
       
       // Override removeEventListener to handle wrapped functions
       EventTarget.prototype.removeEventListener = function(type, listener, options) {
-        if (touchEvents.includes(type) && typeof listener === 'function') {
+        if (type === eventType && typeof listener === 'function') {
           return originalRemove.call(
             this, 
             type, 

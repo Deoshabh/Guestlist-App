@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../components/ToastManager';
 import haptic from '../utils/haptic';

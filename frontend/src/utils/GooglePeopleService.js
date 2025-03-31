@@ -7,8 +7,7 @@ import axios from 'axios';
 // Configuration for Google OAuth
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '148710439418-f1r3q8rmpaunu30bvc0i69e0vpsr8gm2.apps.googleusercontent.com'; 
 const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/contacts.readonly';
-// Use the authorized JavaScript origins from your OAuth client configuration
-const AUTHORIZED_ORIGIN = 'http://bhavyasangh.com';
+// Remove unused variable
 
 class GooglePeopleService {
   /**

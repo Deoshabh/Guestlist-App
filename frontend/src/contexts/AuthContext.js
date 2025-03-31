@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
-import { useToast } from '../components/ToastManager';
 import syncManager from '../utils/syncManager';
 
 const AuthContext = createContext();
@@ -12,7 +11,6 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [showRegister, setShowRegister] = useState(false);
-  const toast = useToast();
 
   // Set axios base URL
   useEffect(() => {

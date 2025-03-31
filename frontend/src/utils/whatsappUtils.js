@@ -87,7 +87,7 @@ export const formatMessageWithPlaceholders = (messageTemplate, guest, options = 
  */
 export const generateWhatsAppUrl = (phone, message = '') => {
   // Normalize phone number - remove spaces, dashes, brackets, and +
-  const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+  const normalizedPhone = phone.replace(/[\s\-()]/g, '');
   
   // URL encode the message
   const encodedMessage = encodeURIComponent(message);

@@ -38,12 +38,11 @@ const GuestListPage = () => {
   const [viewMode, setViewMode] = useState('card');
   
   // Import hooks and contexts
-  const { guests, loading, error, fetchGuests, deleteGuest } = useGuests();
+  const { guests, loading, fetchGuests, deleteGuest } = useGuests();
   const { groups, fetchGroups } = useGuestGroups();
   const { isOnline, API_BASE_URL } = useNetwork();
   const navigate = useNavigate();
   const toast = useToast();
-  const fileInputRef = useRef(null);
   const csvFileInputRef = useRef(null);
 
   // Fetch guests and groups on mount

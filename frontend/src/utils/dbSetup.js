@@ -9,7 +9,7 @@ import { openDB } from 'idb';
  */
 export const setupDatabase = async (dbName = 'guestManagerDB', version = 1) => {
   return openDB(dbName, version, {
-    upgrade(db, oldVersion, newVersion, transaction) {
+    upgrade(db, oldVersion, newVersion) {
       console.log(`Upgrading database from version ${oldVersion} to ${newVersion}`);
       
       // Create object stores if they don't exist
